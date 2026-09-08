@@ -1,4 +1,5 @@
 import { fill, pick, pickAll } from "../pick.mjs";
+import { mutationsIn } from "../learn.mjs";
 import { redact } from "../session.mjs";
 
 /**
@@ -149,6 +150,23 @@ function requireConfig(config) {
       throw retailerError(
         "NOT_CONFIGURED",
         `retailer.config.json is missing "${path}". Copy retailer.config.example.json and fill in the endpoints.`,
+      );
+    }
+  }
+
+  // A read must never change anything. Config written before this check
+  // existed, or edited by hand, can still carry a mutation batched in with
+  // the read — which would edit the basket every time it is looked at.
+  for (const [name, spec] of [
+    ["search", config.search],
+    ["basket.read", config.basket?.read],
+  ]) {
+    const mutations = mutationsIn(spec?.body);
+    if (mutations.length > 0) {
+      throw retailerError(
+        "UNSAFE_CONFIG",
+        `${name} in retailer.config.json carries the mutation ${mutations.join(", ")}, which changes your basket. ` +
+          `Re-learn it: npm run refresh -- ${name === "search" ? "search chicken" : "basket"}`,
       );
     }
   }

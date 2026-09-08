@@ -118,7 +118,7 @@ function describeError(error) {
 
 function statusFor(code) {
   if (code === "SESSION_MISSING" || code === "SESSION_EXPIRED") return 401;
-  if (code === "NOT_CONFIGURED") return 501;
+  if (code === "NOT_CONFIGURED" || code === "UNSAFE_CONFIG") return 501;
   if (code === "BAD_REQUEST") return 400;
   if (code === "RATE_LIMITED") return 429;
   return 502;

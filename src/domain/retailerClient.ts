@@ -12,6 +12,7 @@ export type RetailerErrorCode =
   | "SESSION_MISSING"
   | "SESSION_EXPIRED"
   | "NOT_CONFIGURED"
+  | "UNSAFE_CONFIG"
   | "RATE_LIMITED"
   | "RETAILER_ERROR"
   | "BAD_REQUEST"

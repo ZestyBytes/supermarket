@@ -278,6 +278,8 @@ function labelFor(code: string): string {
       return "Local server not running.";
     case "NOT_CONFIGURED":
       return "Retailer not configured.";
+    case "UNSAFE_CONFIG":
+      return "Unsafe configuration.";
     case "RATE_LIMITED":
       return "Too fast.";
     case "PARTIAL":
