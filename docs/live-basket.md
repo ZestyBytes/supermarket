@@ -48,49 +48,34 @@ No retailer's internal API is hard-coded in this repo — guessing endpoints pro
 fails in ways that look like bugs somewhere else. Instead, hand it the requests the retailer's own
 site makes, and it works the rest out.
 
-In your signed-in tab, open DevTools → Network, then:
-
-1. **Search for something** (say `chicken`). Find the request that returns the products — the one
-   whose response contains the product titles. Right-click → **Copy** → **Copy as cURL**. Paste it
-   into a file, `search.txt`, in the project folder.
-
-   Easiest way, which checks what it caught:
-
-   ```
-   npm run capture -- search.txt
-   ```
-
-   Start that **first**, then copy the request, then press Enter. Copying anything in between —
-   including a command out of these instructions — replaces the clipboard, and that is what would
-   get saved. The tool refuses anything that is not a cURL command and tells you what it found
-   instead.
-2. **Open your basket.** Capture the request that returns its contents the same way:
-   `npm run capture -- basket.txt`
-3. **Add one cheap item to your basket by hand.** Capture that request into `add.txt`, and note the
-   product id and quantity it sent.
-
-Then:
+**These tokens expire within minutes**, so capture and learn in one step:
 
 ```
-node scripts/learn-endpoint.mjs --kind search      --term chicken --file search.txt
-node scripts/learn-endpoint.mjs --kind basket-read                --file basket.txt
-node scripts/learn-endpoint.mjs --kind basket-add  --product-id 254656732 --qty 1 --file add.txt
+npm run refresh -- search chicken
 ```
 
-(`node`, not `npm run` — see the note above about npm eating flags.)
+It waits. Go to your signed-in tab, DevTools → Network → **Fetch/XHR**, search for `chicken`, find
+the request whose response contains the product titles (the DevTools search — the magnifying glass
+— finds it by product name), right-click → **Copy** → **Copy as cURL**, come back, press Enter.
 
-Each command strips the cookie out (it is never written to config), templates out the bits that
-vary, and — for search and basket-read — replays the request once with your imported session so it
-can see where the products, prices and total actually sit in the response. It prints what it found
-and writes `retailer.config.json`.
+Then the same for the other two:
 
-`--kind basket-add` is never replayed: configuring the app should not put anything in your basket.
+```
+npm run refresh -- basket                 open your basket, copy that request
+npm run refresh -- add 254656732 1        add one cheap item by hand, copy that request
+```
 
-Add `--dry-run` to any of them to print the config without writing it.
+Each one stores any credentials it finds in the session file, records the endpoint in
+`retailer.config.json` (endpoints only, never credentials), and — for search and basket — replays
+it once to learn where the products, prices and total sit in the response. The add request is never
+replayed: configuring the app must not put anything in your basket.
 
-Delete `search.txt`, `basket.txt` and `add.txt` when you are done: **they contain your cookie.**
-Those names are gitignored, so an accidental `git add .` will not commit them, but they are still
-plain-text credentials sitting in the project folder.
+If it reports the token was already expired, reload the page, redo the action, and run it again
+straight away.
+
+There is also a file-based route, `node scripts/learn-endpoint.mjs --kind search --term chicken
+--file search.txt`, paired with `npm run capture -- search.txt`. It works, but the gap between
+capturing and learning is usually enough for the token to die.
 
 ### 3. Run both halves
 

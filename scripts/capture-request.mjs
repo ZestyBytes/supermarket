@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { platform } from "node:os";
+import { readClipboard } from "../server/clipboard.mjs";
 import { classifyClipboard } from "../server/learn.mjs";
 
 /**
@@ -61,20 +60,6 @@ if (verdict.kind === "curl") {
 
 
 
-function readClipboard() {
-  const os = platform();
-  if (os === "win32") {
-    return execFileSync("powershell.exe", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], {
-      encoding: "utf8",
-      maxBuffer: 10 * 1024 * 1024,
-    });
-  }
-  if (os === "darwin") return execFileSync("pbpaste", { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
-  return execFileSync("sh", ["-c", "wl-paste 2>/dev/null || xclip -selection clipboard -o"], {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-}
 
 function waitForEnter() {
   return new Promise((resolve) => {

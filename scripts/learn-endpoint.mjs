@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { inferFields, inferList, inferTotal, parseCurl, templatize } from "../server/learn.mjs";
-import { loadSession, updateSession } from "../server/session.mjs";
+import { existsSync, readFileSync } from "node:fs";
+import { learnEndpoint } from "../server/learn-endpoint.mjs";
 
 /**
- * Build retailer.config.json from requests the retailer's own site made.
+ * Learn an endpoint from a request saved to a file.
  *
- * In DevTools → Network, right-click the request → Copy → Copy as cURL, save
- * it to a file, then:
+ * For a fresher path, `npm run refresh -- search chicken` copies from the
+ * clipboard and learns immediately, which matters when the retailer's token
+ * expires within minutes.
  *
  *   node scripts/learn-endpoint.mjs --kind search      --term chicken     --file search.txt
  *   node scripts/learn-endpoint.mjs --kind basket-read                    --file basket.txt
@@ -15,20 +15,11 @@ import { loadSession, updateSession } from "../server/session.mjs";
  *
  * Run it with node, not `npm run`: npm parses unknown --flags as its own
  * config and they never reach the script.
- *
- * Search and basket-read are replayed once with your imported session so the
- * response shape can be read from real data. basket-add is never replayed —
- * that would add something to your basket as a side effect of configuring.
  */
-const CONFIG = process.env.RETAILER_CONFIG ?? "retailer.config.json";
 const args = process.argv.slice(2);
-
 const kind = flag("--kind");
 const file = flag("--file");
-const dryRun = args.includes("--dry-run");
 
-// npm swallows unknown --flags before the script sees them, so this must be
-// run directly with node rather than through `npm run`.
 if (!kind || !file) {
   fail(
     [
@@ -37,6 +28,8 @@ if (!kind || !file) {
       "  node scripts/learn-endpoint.mjs --kind search      --term chicken --file search.txt",
       "  node scripts/learn-endpoint.mjs --kind basket-read                --file basket.txt",
       "  node scripts/learn-endpoint.mjs --kind basket-add  --product-id 12345 --qty 1 --file add.txt",
+      "",
+      "Or capture and learn in one step: npm run refresh -- search chicken",
     ].join("\n"),
   );
 }
@@ -45,182 +38,20 @@ if (!["search", "basket-read", "basket-add"].includes(kind)) {
 }
 if (!existsSync(file)) fail(`No file at ${file}`);
 
-const request = parseCurl(readFileSync(file, "utf8"), { keepSecrets: true });
-
-// Some retailers authenticate their API with a bearer token rather than the
-// cookie. That is a credential, so it joins the session file — never config.
-if (request.secrets?.authorization) {
-  try {
-    updateSession({ authorization: request.secrets.authorization });
-    console.log("Stored the authorization token with your session (not in config).");
-  } catch (error) {
-    console.warn(`Could not store the authorization token: ${error.message}`);
-  }
-}
-const spec = templatize(request, {
-  query: flag("--term"),
+const outcome = await learnEndpoint({
+  text: readFileSync(file, "utf8"),
+  kind,
+  term: flag("--term"),
   productId: flag("--product-id"),
   qty: flag("--qty"),
-  limit: flag("--limit"),
+  configFile: process.env.RETAILER_CONFIG ?? "retailer.config.json",
+  dryRun: args.includes("--dry-run"),
 });
 
-if (request.droppedHeaders.length > 0) {
-  console.log(`Dropped ${request.droppedHeaders.join(", ")} — credentials never go in config.`);
-}
-console.log(`${spec.method} ${spec.origin}${spec.path}`);
-
-// The term can sit in the query string or, for a GraphQL API, in the body.
-const templated = `${spec.path}${spec.body ?? ""}`.includes("{query}");
-
-if (kind === "search" && !templated) {
-  const term = flag("--term") ?? "(no --term given)";
-  console.warn(`\nWarning: "${term}" was not found in that request, so nothing was templated.`);
-  console.warn(`  Request body: ${request.body ? `${request.body.length} characters` : "none captured"}`);
-  if (request.body) {
-    // Show where the retailer put the search term, so the right --term is obvious.
-    const seen = [...request.body.matchAll(/"(?:query|searchTerm|term|q)"\s*:\s*"([^"]{1,60})"/g)]
-      .map((match) => match[1])
-      .filter((value) => !value.includes("{") && value.length < 40);
-    if (seen.length > 0) {
-      console.warn(`  The body searches for: ${[...new Set(seen)].map((v) => `"${v}"`).join(", ")}`);
-      console.warn(`  Re-run with --term matching one of those exactly.`);
-    } else {
-      console.warn("  No search-term-shaped field found in the body. Is this the right request?");
-    }
-  }
-  console.warn("");
-}
-
-const config = existsSync(CONFIG) ? JSON.parse(readFileSync(CONFIG, "utf8")) : { retailer: "tesco" };
-config.baseUrl = spec.origin;
-config.headers = { ...(config.headers ?? {}), ...pickSafeHeaders(spec.headers) };
-
-const entry = { method: spec.method, path: spec.path };
-if (spec.body) entry.body = spec.body;
-
-if (kind === "basket-add") {
-  config.basket = { ...(config.basket ?? {}), add: entry };
-  console.log("Recorded the add-to-basket request. It was not replayed.");
-} else {
-  const payload = await replay(spec);
-  if (payload) {
-    const list = inferList(payload);
-    if (!list) {
-      console.warn("\nCould not find a list of records in the response.");
-      describeResponse(payload);
-    } else {
-      entry.results = list;
-      entry.fields = inferFields(sampleFrom(payload, list), kind === "search" ? "search" : "basket");
-      console.log(`Found ${list} with fields: ${JSON.stringify(entry.fields, null, 2)}`);
-    }
-    if (kind === "basket-read") {
-      entry.total = inferTotal(payload);
-      if (entry.total) console.log(`Basket total looks like: ${entry.total}`);
-    }
-  }
-  if (kind === "search") config.search = entry;
-  else config.basket = { ...(config.basket ?? {}), read: entry };
-}
-
-if (dryRun) {
-  console.log(JSON.stringify(config, null, 2));
-} else {
-  writeFileSync(CONFIG, `${JSON.stringify(config, null, 2)}\n`);
-  console.log(`Wrote ${CONFIG}`);
-}
-
-async function replay(spec) {
-  const session = loadSession();
-  if (!session) {
-    console.warn("No session imported, so the request was not replayed. Run: npm run tesco:import");
-    return null;
-  }
-  try {
-    const response = await fetch(new URL(spec.path, spec.origin), {
-      method: spec.method,
-      headers: {
-        ...spec.headers,
-        accept: "application/json",
-        // Whichever credentials the session holds. A token-authenticated API
-        // gets nothing useful back without this, and "nothing back" reads as
-        // "no products" rather than "not signed in".
-        ...(session.cookie ? { cookie: session.cookie } : {}),
-        ...(session.authorization ? { authorization: session.authorization } : {}),
-      },
-      body: spec.body,
-      redirect: "manual",
-    });
-    if (response.status === 401 || response.status === 403) {
-      console.warn("The retailer rejected the session. Re-import it and try again.");
-      return null;
-    }
-    const text = await response.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      console.warn(`Response was not JSON (${response.status}). Is the session still signed in?`);
-      return null;
-    }
-  } catch (error) {
-    console.warn(`Could not replay the request: ${error.message}`);
-    return null;
-  }
-}
-
-/**
- * Say what came back, when no products could be found in it.
- *
- * The two cases look identical from a failed inference — a shop with no
- * matches, and an API that refused the request — so the difference has to be
- * printed. GraphQL puts refusals in `errors` and still answers 200.
- */
-function describeResponse(payload) {
-  const root = Array.isArray(payload) ? payload[0] : payload;
-  const errors = root?.errors ?? payload?.errors;
-
-  if (Array.isArray(errors) && errors.length > 0) {
-    console.warn("  The retailer returned errors, not data:");
-    for (const error of errors.slice(0, 3)) {
-      const code = error?.extensions?.code ? ` [${error.extensions.code}]` : "";
-      console.warn(`    ${String(error?.message ?? error).slice(0, 160)}${code}`);
-    }
-    if (/auth|token|forbidden|unauthor/i.test(JSON.stringify(errors).slice(0, 2000))) {
-      console.warn("  That reads like an authentication problem — re-capture the request and run this again.");
-    }
-    return;
-  }
-
-  console.warn(
-    `  Top-level shape: ${Array.isArray(payload) ? `array of ${payload.length}` : `object`}, keys: ${Object.keys(
-      root ?? {},
-    )
-      .slice(0, 8)
-      .join(", ")}`,
-  );
-  console.warn(`  First 300 characters: ${JSON.stringify(payload).slice(0, 300)}`);
-  console.warn("  Paste that line if you want help mapping it by hand.");
-}
-
-function sampleFrom(payload, listPath) {
-  let node = payload;
-  for (const step of listPath.replace(/\[\]$/, "").split(".")) {
-    if (!step) continue;
-    node = node?.[step];
-  }
-  return Array.isArray(node) ? node[0] : {};
-}
-
-/**
- * Keep the headers the API actually needs; drop only noise.
- *
- * An allowlist looked safer but threw away the custom headers these APIs
- * require — an `x-apikey` or a trace id — leaving requests that fail for no
- * visible reason. Credentials are already gone: parseCurl drops the cookie and
- * any authorization header before this runs.
- */
-function pickSafeHeaders(headers) {
-  const drop = /^(host|connection|content-length|referer|origin|sec-|:|accept-encoding|priority)/i;
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => !drop.test(name)));
+if (!outcome.ok && outcome.reason === "expired") {
+  console.error("\nThe token in that file has expired. Capture and learn in one step instead:");
+  console.error("  npm run refresh -- search chicken");
+  process.exit(1);
 }
 
 function flag(name) {
