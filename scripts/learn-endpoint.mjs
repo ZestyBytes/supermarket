@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { inferFields, inferList, inferTotal, parseCurl, templatize } from "../server/learn.mjs";
-import { loadSession } from "../server/session.mjs";
+import { loadSession, updateSession } from "../server/session.mjs";
 
 /**
  * Build retailer.config.json from requests the retailer's own site made.
@@ -45,7 +45,18 @@ if (!["search", "basket-read", "basket-add"].includes(kind)) {
 }
 if (!existsSync(file)) fail(`No file at ${file}`);
 
-const request = parseCurl(readFileSync(file, "utf8"));
+const request = parseCurl(readFileSync(file, "utf8"), { keepSecrets: true });
+
+// Some retailers authenticate their API with a bearer token rather than the
+// cookie. That is a credential, so it joins the session file — never config.
+if (request.secrets?.authorization) {
+  try {
+    updateSession({ authorization: request.secrets.authorization });
+    console.log("Stored the authorization token with your session (not in config).");
+  } catch (error) {
+    console.warn(`Could not store the authorization token: ${error.message}`);
+  }
+}
 const spec = templatize(request, {
   query: flag("--term"),
   productId: flag("--product-id"),
@@ -58,11 +69,26 @@ if (request.droppedHeaders.length > 0) {
 }
 console.log(`${spec.method} ${spec.origin}${spec.path}`);
 
-if (kind === "search" && !spec.path.includes("{query}")) {
-  console.warn(
-    `Warning: "${flag("--term") ?? "(no --term given)"}" was not found in that request, so nothing was templated.\n` +
-      "Pass --term with the exact word you searched for.",
-  );
+// The term can sit in the query string or, for a GraphQL API, in the body.
+const templated = `${spec.path}${spec.body ?? ""}`.includes("{query}");
+
+if (kind === "search" && !templated) {
+  const term = flag("--term") ?? "(no --term given)";
+  console.warn(`\nWarning: "${term}" was not found in that request, so nothing was templated.`);
+  console.warn(`  Request body: ${request.body ? `${request.body.length} characters` : "none captured"}`);
+  if (request.body) {
+    // Show where the retailer put the search term, so the right --term is obvious.
+    const seen = [...request.body.matchAll(/"(?:query|searchTerm|term|q)"\s*:\s*"([^"]{1,60})"/g)]
+      .map((match) => match[1])
+      .filter((value) => !value.includes("{") && value.length < 40);
+    if (seen.length > 0) {
+      console.warn(`  The body searches for: ${[...new Set(seen)].map((v) => `"${v}"`).join(", ")}`);
+      console.warn(`  Re-run with --term matching one of those exactly.`);
+    } else {
+      console.warn("  No search-term-shaped field found in the body. Is this the right request?");
+    }
+  }
+  console.warn("");
 }
 
 const config = existsSync(CONFIG) ? JSON.parse(readFileSync(CONFIG, "utf8")) : { retailer: "tesco" };

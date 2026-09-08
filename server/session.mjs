@@ -18,7 +18,7 @@ export function sessionPath() {
   return process.env.SUPERMARKET_SESSION_FILE || DEFAULT_PATH;
 }
 
-export function saveSession(cookie, { retailer = "tesco", file = sessionPath() } = {}) {
+export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), authorization } = {}) {
   const names = cookieNames(cookie);
   if (names.length === 0) {
     throw new Error("That does not look like a Cookie header — expected name=value pairs separated by ';'.");
@@ -30,6 +30,9 @@ export function saveSession(cookie, { retailer = "tesco", file = sessionPath() }
     cookieCount: names.length,
     cookieNames: names,
     cookie,
+    // Some retailers authenticate the API with a bearer token rather than the
+    // cookie. It is the same kind of secret, so it lives in the same place.
+    ...(authorization ? { authorization } : {}),
   };
 
   mkdirSync(dirname(file), { recursive: true });
@@ -56,6 +59,16 @@ export function loadSession({ file = sessionPath() } = {}) {
   }
 }
 
+/** Merge fields into the stored session, keeping what is already there. */
+export function updateSession(patch, { file = sessionPath() } = {}) {
+  const current = loadSession({ file });
+  if (!current) throw new Error("No session imported yet — run: npm run tesco:import");
+  const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+  writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  if (platform() !== "win32") chmodSync(file, 0o600);
+  return { ...next, cookie: undefined, authorization: undefined };
+}
+
 export function forgetSession({ file = sessionPath() } = {}) {
   rmSync(file, { force: true });
 }
@@ -68,6 +81,7 @@ export function describeSession(record) {
     retailer: record.retailer,
     importedAt: record.importedAt,
     cookieCount: record.cookieCount ?? cookieNames(record.cookie).length,
+    hasAuthorization: Boolean(record.authorization),
     ageHours: Math.round(((Date.now() - Date.parse(record.importedAt)) / 3_600_000) * 10) / 10,
   };
 }

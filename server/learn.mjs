@@ -11,12 +11,15 @@
 const SECRET_HEADERS = new Set(["cookie", "authorization", "x-csrf-token", "proxy-authorization"]);
 
 /** Parse a cURL command, in either the bash (single-quote) or cmd (double-quote) flavour. */
-export function parseCurl(text) {
+export function parseCurl(text, { keepSecrets = false } = {}) {
   const tokens = tokenize(uncaret(String(text)).trim());
 
   if (tokens[0] !== "curl") throw new Error("That does not start with `curl` — copy the request as cURL.");
 
   const request = { method: null, url: null, headers: {}, body: null, droppedHeaders: [] };
+  // Never part of the returned request unless the caller asks: the default is
+  // that a parsed request cannot leak what it stripped.
+  const secrets = {};
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i];
@@ -29,11 +32,14 @@ export function parseCurl(text) {
       if (split < 0) continue;
       const name = header.slice(0, split).trim().toLowerCase();
       const value = header.slice(split + 1).trim();
-      if (SECRET_HEADERS.has(name)) request.droppedHeaders.push(name);
+      if (SECRET_HEADERS.has(name)) {
+        request.droppedHeaders.push(name);
+        secrets[name] = value;
+      }
       else if (!name.startsWith(":")) request.headers[name] = value;
     } else if (token === "-b" || token === "--cookie") {
       request.droppedHeaders.push("cookie");
-      i++;
+      secrets.cookie = tokens[++i] ?? "";
     } else if (token.startsWith("--data") || token === "-d") {
       request.body = tokens[++i] ?? "";
     } else if (token === "--compressed" || token.startsWith("-")) {
@@ -46,7 +52,7 @@ export function parseCurl(text) {
 
   if (!request.url) throw new Error("No URL found in that cURL command.");
   request.method ??= request.body ? "POST" : "GET";
-  return request;
+  return keepSecrets ? { ...request, secrets } : request;
 }
 
 /**

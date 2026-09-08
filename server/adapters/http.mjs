@@ -10,20 +10,24 @@ import { redact } from "../session.mjs";
  * the response; this module does the talking, the cookie handling and the
  * error classification.
  */
-export function createHttpAdapter(config, getCookie) {
+export function createHttpAdapter(config, getSession) {
   requireConfig(config);
 
   async function call(spec, values = {}) {
-    const cookie = getCookie();
-    if (!cookie) throw retailerError("SESSION_MISSING", "No retailer session imported.");
+    const session = getSession() ?? {};
+    const cookie = typeof session === "string" ? session : session.cookie;
+    if (!cookie && !session.authorization) {
+      throw retailerError("SESSION_MISSING", "No retailer session imported.");
+    }
 
     const url = new URL(fill(spec.path, values), config.baseUrl);
     const init = {
       method: spec.method ?? "GET",
       headers: {
-        // The cookie goes on the wire and nowhere else: not to the browser,
+        // Credentials go on the wire and nowhere else: not to the browser,
         // not into an error message, not into a log.
-        cookie,
+        ...(cookie ? { cookie } : {}),
+        ...(session.authorization ? { authorization: session.authorization } : {}),
         accept: "application/json",
         "user-agent": config.userAgent ?? "Supermarket/0.1 (local meal planner)",
         ...(config.headers ?? {}),

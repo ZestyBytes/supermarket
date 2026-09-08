@@ -29,7 +29,7 @@ function adapter() {
     );
   }
   const config = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
-  return createHttpAdapter(config, () => loadSession()?.cookie);
+  return createHttpAdapter(config, () => loadSession());
 }
 
 const routes = {
