@@ -1,20 +1,17 @@
-import type { PlannedMeal, Recipe } from "../domain/types";
+import type { PlannedMeal } from "../domain/types";
 
 interface Props {
   plan: PlannedMeal[];
-  recipes: Recipe[];
   servings: number;
   wanted: number;
   onServings: (servings: number) => void;
   onWanted: (meals: number) => void;
   onSurprise: () => void;
   onClear: () => void;
-  onRemove: (key: string) => void;
 }
 
 /** How many, for how many, and what is in the week so far. */
-export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted, onSurprise, onClear, onRemove }: Props) {
-  const nameOf = (id: string) => recipes.find((r) => r.id === id);
+export function WeekBar({ plan, servings, wanted, onServings, onWanted, onSurprise, onClear }: Props) {
 
   return (
     <section className="week" aria-label="This week">
@@ -33,28 +30,6 @@ export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted,
           </button>
         )}
       </div>
-
-      {plan.length > 0 && (
-        <ul className="week__chosen">
-          {plan.map((meal) => {
-            const recipe = nameOf(meal.recipeId);
-            return (
-              <li key={meal.key}>
-                <span aria-hidden="true">{recipe?.emoji}</span>
-                <span className="week__name">{recipe?.name ?? meal.recipeId}</span>
-                <button
-                  className="week__drop"
-                  type="button"
-                  aria-label={`Remove ${recipe?.name ?? "meal"}`}
-                  onClick={() => onRemove(meal.key)}
-                >
-                  ×
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
 
       <p className="week__count">
         {plan.length} of {wanted} chosen{plan.length > 0 && ` · feeding ${servings}`}

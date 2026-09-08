@@ -19,6 +19,7 @@ import { formatQty, money } from "../domain/units";
 import type { Requirement } from "../domain/types";
 import { newAttemptId } from "../domain/ids";
 import { mealsAtRisk, reasonText } from "../domain/availability";
+import { reconcile, type Reconciliation } from "../domain/reconcile";
 
 interface Props {
   /** What the week needs, after consolidation and cupboard exclusions. */
@@ -51,6 +52,7 @@ export function LivePanel({ requirements }: Props) {
   const [reach, setReach] = useState<"checking" | "ok" | "absent">("checking");
   const [conn, setConn] = useState<Connection>({ state: "unknown" });
   const attemptId = useRef(newAttemptId());
+  const [failures, setFailures] = useState<Array<{ productId: string; error?: { message?: string } }>>([]);
 
   useEffect(() => {
     refreshSession();
@@ -94,15 +96,15 @@ export function LivePanel({ requirements }: Props) {
 
     setProgress(`Finding products for ${requirements.length} ingredients…`);
     try {
-      for (let offset = 0; offset < requirements.length; offset += 4) {
-        const group = requirements.slice(offset, offset + 4);
+      for (let offset = 0; offset < requirements.length; offset += 8) {
+        const group = requirements.slice(offset, offset + 8);
         const results = await searchBatch(group.map(searchTermFor));
         for (const requirement of group) {
           const result = results.find(r => r.query === searchTermFor(requirement));
           if (!result || result.error) failures.add(requirement.ingredient.id);
           found.set(requirement.ingredient.id, result?.results ?? []);
         }
-        setProgress(`Searched ${Math.min(offset + 4, requirements.length)} of ${requirements.length} ingredients…`);
+        setProgress(`Checked ${Math.min(offset + 8, requirements.length)} of ${requirements.length} with Tesco…`);
       }
       attemptId.current = newAttemptId();
     } catch (error) { report(error); setStage("idle"); setProgress(""); return; }
@@ -133,11 +135,9 @@ export function LivePanel({ requirements }: Props) {
         attemptId.current,
       );
       setBasket(result.basket);
+      setFailures(result.failed as Array<{ productId: string; error?: { message?: string } }>);
       writeLastSend(fingerprint);
       setStage("sent");
-      if (result.failed.length > 0) {
-        setProblem({ code: "PARTIAL", message: `${result.failed.length} line(s) were not added. See your basket.` });
-      }
     } catch (error) {
       report(error);
       setStage("matched");
@@ -243,24 +243,8 @@ export function LivePanel({ requirements }: Props) {
           </>
         )}
 
-        {basket && (
-          <div className="retailer__basket">
-            <p className="label">Read back from the retailer</p>
-            <ul>
-              {basket.items.map((item) => (
-                <li key={item.id}>
-                  {item.qty} × {item.title}
-                </li>
-              ))}
-              {basket.items.length === 0 && <li>Basket is empty.</li>}
-            </ul>
-            <p className="retailer__total">
-              Retailer total <strong>{money(basket.total)}</strong>
-              <span className="retailer__caveat">
-                Their figure, not ours — it includes delivery, offers and anything already in the basket.
-              </span>
-            </p>
-          </div>
+        {stage === "sent" && basket && match && (
+          <Outcome check={reconcile(match.choices, basket, failures)} total={basket.total} />
         )}
 
         <div className="retailer__acts">
@@ -270,7 +254,7 @@ export function LivePanel({ requirements }: Props) {
             onClick={findProducts}
             disabled={requirements.length === 0 || stage === "searching" || stage === "sending"}
           >
-            {stage === "searching" ? "Searching…" : "Find live products"}
+            {stage === "searching" ? "Checking Tesco…" : match ? "Check Tesco again" : "Find these at Tesco"}
           </button>
           <button
             className="btn btn--go"
@@ -278,14 +262,9 @@ export function LivePanel({ requirements }: Props) {
             onClick={send}
             disabled={!match || match.choices.length === 0 || stage !== "matched"}
           >
-            {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} lines to my basket`}
+            {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} items to Tesco`}
           </button>
         </div>
-
-        <p className="retailer__note">
-          Nothing is ever checked out or paid for. The session stays on this machine — the page asks
-          the local server, and only that server talks to the retailer.
-        </p>
       </div>
     </section>
   );
@@ -306,29 +285,81 @@ export function LivePanel({ requirements }: Props) {
  * Consolidation is what makes this possible — each requirement still knows
  * which meals asked for it.
  */
+/**
+ * What actually landed in the basket, checked against what we meant to add.
+ *
+ * This is the moment the app is either trustworthy or not. Listing the whole
+ * basket answered the wrong question — half of it may be someone else's
+ * shopping — so the list here is ours, and anything missing or short is at the
+ * top, named by ingredient, because that is what you would go looking for.
+ */
+function Outcome({ check, total }: { check: Reconciliation; total: number }) {
+  const good = check.problems.length === 0;
+  return (
+    <div className={`outcome outcome--${good ? "good" : "bad"}`}>
+      <p className="outcome__head">
+        <strong>
+          {good
+            ? `All ${check.done} added to your Tesco basket`
+            : `${check.done} of ${check.lines.length} added`}
+        </strong>
+      </p>
+
+      {!good && (
+        <>
+          <p className="outcome__note">These did not go in. Add them at Tesco, or try again.</p>
+          <ul className="outcome__miss">
+            {check.problems.map((line) => (
+              <li key={line.productTitle}>
+                <span className="outcome__what">{line.ingredientName}</span>
+                <span className="outcome__why">
+                  {line.state === "short" ? `only ${line.inBasket} of ${line.wanted}` : "not added"}
+                  {line.why && ` — ${line.why}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <p className="outcome__foot">
+        Tesco total <strong>{money(total)}</strong>
+        {check.othersInBasket > 0 && ` · includes ${check.othersInBasket} item${check.othersInBasket === 1 ? "" : "s"} already in the basket`}
+      </p>
+    </div>
+  );
+}
+
 function AtRisk({ match }: { match: LiveMatch }) {
   const risks = mealsAtRisk(match);
   return (
     <div className="risk">
       <p className="risk__head">
-        <strong>{risks.length === 1 ? "One meal is short" : `${risks.length} meals are short`}</strong> — everything
-        else is ready to add.
+        <strong>{risks.length === 1 ? "One meal is short" : `${risks.length} meals are short`}</strong> —
+        everything else is ready to add.
       </p>
       <ul className="risk__meals">
         {risks.map((risk) => (
           <li key={risk.recipeId}>
-            <span className="risk__name">{risk.recipeName}</span>
-            <ul className="risk__bits">
-              {risk.problems.map((problem) => (
-                <li key={problem.ingredientName}>
-                  {problem.ingredientName} — {reasonText(problem.reason)}
-                </li>
-              ))}
-            </ul>
+            <details>
+              <summary>
+                <span className="risk__name">{risk.recipeName}</span>
+                <span className="risk__count">
+                  {risk.problems.length} missing
+                </span>
+              </summary>
+              <ul className="risk__bits">
+                {risk.problems.map((problem) => (
+                  <li key={problem.ingredientName}>
+                    {problem.ingredientName} — {reasonText(problem.reason)}
+                  </li>
+                ))}
+              </ul>
+            </details>
           </li>
         ))}
       </ul>
-      <p className="risk__what">Swap those meals on the Meals tab, or add the rest and pick these up yourself.</p>
+      <p className="risk__what">Swap those on the Meals tab, or add the rest and pick these up yourself.</p>
     </div>
   );
 }
@@ -368,7 +399,24 @@ function ConnectionRow({
   mode: "live" | "mock";
   onCheck: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const what = describe(conn, session, mode);
+
+  // When it is working there is nothing to say, so say almost nothing. The
+  // detail is one tap away for the times it stops working, which is when
+  // anybody actually wants it.
+  if (what.tone === "good" && !open) {
+    return (
+      <button className="conn conn--quiet" type="button" onClick={() => setOpen(true)}>
+        <span className="conn__dot" aria-hidden="true" />
+        <span>{what.headline}</span>
+        <span className="conn__more" aria-hidden="true">
+          Details
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className={`conn conn--${what.tone}`}>
       <p className="conn__state">
@@ -376,9 +424,22 @@ function ConnectionRow({
         <strong>{what.headline}</strong>
       </p>
       <p className="conn__detail">{what.detail}</p>
-      <button className="mini" type="button" onClick={onCheck} disabled={conn.state === "checking"}>
-        {conn.state === "checking" ? "Checking…" : "Check again"}
-      </button>
+      <p className="conn__acts">
+        <button className="mini" type="button" onClick={onCheck} disabled={conn.state === "checking"}>
+          {conn.state === "checking" ? "Checking…" : "Check again"}
+        </button>
+        {what.tone === "good" && (
+          <button className="mini" type="button" onClick={() => setOpen(false)}>
+            Hide
+          </button>
+        )}
+      </p>
+      {open && (
+        <p className="conn__small">
+          Nothing is ever checked out or paid for. Your Tesco session stays on the computer running
+          the app.
+        </p>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { INGREDIENTS } from "./data/ingredients";
 import { RECIPES } from "./data/recipes";
 import type { PlannedMeal } from "./domain/types";
 import { usePersistentState } from "./ui/usePersistentState";
-import { MealDeck } from "./ui/MealDeck";
+import { MealList } from "./ui/MealList";
 import { WeekBar } from "./ui/WeekBar";
 import { HaveList } from "./ui/HaveList";
 import { LivePanel } from "./ui/LivePanel";
@@ -61,16 +61,14 @@ export function App() {
           <>
             <WeekBar
               plan={plan}
-              recipes={RECIPES}
               servings={servings}
               wanted={wanted}
               onServings={setServingsEverywhere}
               onWanted={setWanted}
               onSurprise={() => setPlan(surpriseWeek(RECIPES, wanted, servings))}
               onClear={() => setPlan([])}
-              onRemove={(key) => setPlan((current) => current.filter((m) => m.key !== key))}
             />
-            <MealDeck
+            <MealList
               recipes={RECIPES}
               plan={plan}
               ingredients={INGREDIENTS}

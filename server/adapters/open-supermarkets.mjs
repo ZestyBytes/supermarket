@@ -45,7 +45,9 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
       return call(async p => {
         // Upstream's reusable batch helper lets us bound concurrency without subprocesses.
         const results = [];
-        for (let i = 0; i < queries.length; i += 2) {
+        // Four at a time rather than two: a week is twenty-five or more
+        // ingredients, and searching them two-by-two is most of the wait.
+        for (let i = 0; i < queries.length; i += 4) {
           const resilient = { search: async (query, options) => {
             const key = `${query.toLowerCase()}|${options.limit}`;
             const cached = searchCache.get(key);
@@ -55,13 +57,15 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
               try {
                 const products = await p.search(query, options);
                 for (const product of products) if (product.in_stock && product.retail_price.price > 0) collected.set(product.product_uid, product);
-                // Partial detail batches can otherwise leave just the first pack.
-                if (collected.size < Math.min(options.limit, 5) && attempt < 2) {
-                  await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+                // Retry only an empty answer. Retrying "fewer than five" meant
+                // waiting an extra 1.5s for every ordinary ingredient that
+                // simply has three good matches, which was most of them.
+                if (collected.size === 0 && attempt < 1) {
+                  await new Promise(resolve => setTimeout(resolve, 400));
                   continue;
                 }
                 const complete = [...collected.values()];
-                if (complete.length >= Math.min(options.limit, 5)) searchCache.set(key, { products: complete, until: Date.now() + 120000 });
+                if (complete.length > 0) searchCache.set(key, { products: complete, until: Date.now() + 300000 });
                 return complete;
               } catch (error) {
                 if (attempt >= 2 || classify(error).code === 'SESSION_EXPIRED') throw error;
@@ -69,7 +73,7 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
               }
             }
           } };
-          const batch = await batchSearch(resilient, queries.slice(i, i + 2), { limit, concurrency: 1 });
+          const batch = await batchSearch(resilient, queries.slice(i, i + 4), { limit, concurrency: 2 });
           const authFailure = batch.find(r => r.error && classify(new Error(r.error)).code === 'SESSION_EXPIRED');
           if (authFailure) throw classify(new Error(authFailure.error));
           results.push(...batch);
