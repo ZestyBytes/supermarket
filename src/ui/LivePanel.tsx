@@ -27,6 +27,13 @@ type Stage = "idle" | "searching" | "matched" | "sending" | "sent";
 
 const LAST_SEND_KEY = "supermarket.lastSend";
 
+/** What the last real call to the retailer proved, rather than what we assume. */
+type Connection =
+  | { state: "unknown" }
+  | { state: "checking" }
+  | { state: "live"; at: string; items: number }
+  | { state: "failed"; code: string; message: string };
+
 export function LivePanel({ requirements }: Props) {
   const [session, setSession] = useState<SessionState | null>(null);
   const [mode, setMode] = useState<"live" | "mock">("live");
@@ -36,6 +43,7 @@ export function LivePanel({ requirements }: Props) {
   const [problem, setProblem] = useState<{ code: string; message: string } | null>(null);
   const [progress, setProgress] = useState("");
   const [reach, setReach] = useState<"checking" | "ok" | "absent">("checking");
+  const [conn, setConn] = useState<Connection>({ state: "unknown" });
 
   useEffect(() => {
     refreshSession();
@@ -48,6 +56,9 @@ export function LivePanel({ requirements }: Props) {
       setMode(state.mode);
       setProblem(null);
       setReach("ok");
+      // A session file on disk proves nothing about whether the retailer still
+      // accepts it. Ask them.
+      if (state.session.present || state.mode === "mock") checkConnection();
     } catch (error) {
       setSession(null);
       // Nothing answering at all is a different thing from a retailer saying
@@ -126,12 +137,32 @@ export function LivePanel({ requirements }: Props) {
     }
   }
 
-  async function verify() {
+  /**
+   * The one question worth answering on a phone: is this actually talking to
+   * Tesco right now?
+   *
+   * Reading the basket is the only honest way to know. A stored session, a
+   * cookie count, an "imported 2h ago" — none of them survive the retailer
+   * rotating the session, and all of them look identical whether it worked or
+   * not. Reading the basket back exercises the session, the config and the
+   * network in one go, and changes nothing.
+   */
+  async function checkConnection() {
+    setConn({ state: "checking" });
     try {
-      setBasket(await readBasket());
+      const live = await readBasket();
+      setBasket(live);
       setProblem(null);
+      setConn({
+        state: "live",
+        at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        items: live.items.length,
+      });
     } catch (error) {
-      report(error);
+      const code = error instanceof RetailerError ? error.code : "RETAILER_ERROR";
+      const message = error instanceof Error ? error.message : String(error);
+      if (code === "OFFLINE") setReach("absent");
+      setConn({ state: "failed", code, message });
     }
   }
 
@@ -147,7 +178,7 @@ export function LivePanel({ requirements }: Props) {
       </div>
 
       <div className="card__body retailer__body">
-        <SessionRow session={session} mode={mode} onRefresh={refreshSession} />
+        <ConnectionRow conn={conn} session={session} mode={mode} onCheck={checkConnection} />
 
         {problem && (
           <p className={`notice notice--${problem.code === "PARTIAL" ? "warn" : "bad"}`}>
@@ -236,9 +267,6 @@ export function LivePanel({ requirements }: Props) {
           >
             {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} lines to my basket`}
           </button>
-          <button className="mini" type="button" onClick={verify}>
-            Read my basket
-          </button>
         </div>
 
         <p className="retailer__note">
@@ -281,35 +309,91 @@ function PlanningOnly() {
   );
 }
 
-function SessionRow({
+function ConnectionRow({
+  conn,
   session,
   mode,
-  onRefresh,
+  onCheck,
 }: {
+  conn: Connection;
   session: SessionState | null;
   mode: "live" | "mock";
-  onRefresh: () => void;
+  onCheck: () => void;
 }) {
+  const what = describe(conn, session, mode);
+  return (
+    <div className={`conn conn--${what.tone}`}>
+      <p className="conn__state">
+        <span className="conn__dot" aria-hidden="true" />
+        <strong>{what.headline}</strong>
+      </p>
+      <p className="conn__detail">{what.detail}</p>
+      <button className="mini" type="button" onClick={onCheck} disabled={conn.state === "checking"}>
+        {conn.state === "checking" ? "Checking…" : "Check again"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Says what is true, in the words someone standing in a kitchen would use.
+ * Every branch names the next move, because "not connected" without "here is
+ * what to do" is just a wall.
+ */
+function describe(
+  conn: Connection,
+  session: SessionState | null,
+  mode: "live" | "mock",
+): { tone: "good" | "bad" | "wait"; headline: string; detail: string } {
   if (mode === "mock") {
-    return <p className="retailer__session">Running against the built-in mock shop. No real account is involved.</p>;
+    return {
+      tone: "wait",
+      headline: "Practice shop",
+      detail: "Running against the built-in mock shop. No real Tesco account is involved.",
+    };
+  }
+  if (conn.state === "checking") {
+    return { tone: "wait", headline: "Checking Tesco…", detail: "Reading your basket to see whether the session still works." };
+  }
+  if (conn.state === "live") {
+    return {
+      tone: "good",
+      headline: "Connected to Tesco",
+      detail: `Read your basket at ${conn.at} — ${conn.items === 0 ? "it is empty" : `${conn.items} item${conn.items === 1 ? "" : "s"} in it`}. Anything you add will go here.`,
+    };
+  }
+  if (conn.state === "failed") {
+    if (conn.code === "SESSION_EXPIRED") {
+      return {
+        tone: "bad",
+        headline: "Not connected — Tesco signed you out",
+        detail: "On the computer running the app: sign in to Tesco in your browser, then run npm run tesco:import.",
+      };
+    }
+    if (conn.code === "SESSION_MISSING") {
+      return {
+        tone: "bad",
+        headline: "Not connected — no Tesco session yet",
+        detail: "On the computer running the app, run npm run tesco:import and paste the details from a signed-in Tesco tab.",
+      };
+    }
+    if (conn.code === "NOT_CONFIGURED" || conn.code === "UNSAFE_CONFIG") {
+      return {
+        tone: "bad",
+        headline: "Not connected — Tesco is not set up",
+        detail: "The app does not yet know which Tesco requests to make. See docs/live-basket.md on the computer running it.",
+      };
+    }
+    return { tone: "bad", headline: "Not connected", detail: conn.message };
   }
   if (!session?.present) {
-    return (
-      <p className="retailer__session retailer__session--off">
-        No session imported. Run <code>npm run tesco:import</code> and paste the Cookie header from a
-        signed-in tab.
-      </p>
-    );
+    return {
+      tone: "bad",
+      headline: "Not connected — no Tesco session yet",
+      detail: "On the computer running the app, run npm run tesco:import and paste the details from a signed-in Tesco tab.",
+    };
   }
-  return (
-    <p className="retailer__session">
-      Session imported {session.ageHours != null && session.ageHours < 48 ? `${session.ageHours}h ago` : "a while ago"}
-      {session.cookieCount ? ` · ${session.cookieCount} cookies` : ""}.{" "}
-      <button className="mini" type="button" onClick={onRefresh}>
-        Re-check
-      </button>
-    </p>
-  );
+  return { tone: "wait", headline: "Not checked yet", detail: "Tap Check again to see whether Tesco still accepts the session." };
 }
 
 function labelFor(code: string): string {

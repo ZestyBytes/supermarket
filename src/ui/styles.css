@@ -1,16 +1,20 @@
-/* Supermarket — shelf-edge palette: paper ground, green-black ink,
-   tomato for prices, leaf green for actions, amber for offer tags. */
+/* Supermarket — shelf-edge palette: warm paper ground, near-black ink,
+   tomato for prices, ink-blue for actions, amber for offer tags.
+   Light only, on purpose: this is read in a kitchen and on a phone, and a
+   grocery list wants to look like paper rather than follow the phone's mood. */
 :root {
-  --paper:   #EEF0EA;
-  --surface: #FAFBF7;
-  --ink:     #161E18;
-  --muted:   #5F6A5C;
-  --line:    #D6DCCE;
-  --price:   #B8382A;
-  --leaf:    #2E6B4C;
-  --amber:   #D9A227;
+  color-scheme: light;
+
+  --paper:   #F0EFEB;
+  --surface: #FCFBF8;
+  --ink:     #1A1A18;
+  --muted:   #67655E;
+  --line:    #DDDAD2;
+  --price:   #AE3527;
+  --accent:  #2E4A82;
+  --amber:   #C08A18;
   --tag-ink: #241C05;
-  --focus:   #2E6B4C;
+  --focus:   #2E4A82;
 
   --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
   --body:    "Public Sans", system-ui, -apple-system, sans-serif;
@@ -18,26 +22,6 @@
 
   --pane: 21rem;
   --r: 3px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper:   #11150F;
-    --surface: #191E17;
-    --ink:     #E7EBE0;
-    --muted:   #98A28E;
-    --line:    #2B3327;
-    --price:   #EF7C69;
-    --leaf:    #6FBE93;
-    --amber:   #E4C05F;
-    --tag-ink: #1A1503;
-    --focus:   #6FBE93;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #11150F; --surface: #191E17; --ink: #E7EBE0; --muted: #98A28E;
-  --line: #2B3327; --price: #EF7C69; --leaf: #6FBE93; --amber: #E4C05F;
-  --tag-ink: #1A1503; --focus: #6FBE93;
 }
 
 * { box-sizing: border-box; }
@@ -80,13 +64,13 @@ code { font-family: var(--mono); font-size: .9em; }
 }
 .brand { display: flex; align-items: baseline; gap: .55rem; margin-right: auto; }
 .brand__mark { font-family: var(--display); font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; }
-.brand__mark span { color: var(--leaf); }
+.brand__mark span { color: var(--accent); }
 .brand__strap { color: var(--muted); font-size: .78rem; }
 
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .seg button { background: none; border: 0; padding: .4rem .8rem; cursor: pointer; font-size: .85rem; }
 .seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--leaf); color: #FFF; font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #FFF; font-weight: 600; }
 
 .masthead__basket { display: grid; justify-items: end; line-height: 1.2; }
 .masthead__basket strong { font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -121,7 +105,7 @@ code { font-family: var(--mono); font-size: .9em; }
 
 .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
 .chip { background: none; border: 1px solid var(--line); border-radius: 99px; padding: .25rem .7rem; font-size: .78rem; cursor: pointer; }
-.chip[aria-pressed="true"] { border-color: var(--leaf); color: var(--leaf); font-weight: 600; }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .chip--have { border-style: dashed; color: var(--muted); }
 
 .btn { background: var(--surface); color: var(--ink); border: 1px solid var(--ink); border-radius: var(--r); padding: .45rem .8rem; font-weight: 600; font-size: .85rem; cursor: pointer; }
@@ -131,18 +115,18 @@ code { font-family: var(--mono); font-size: .9em; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .mini { background: none; border: 0; padding: 0; font-family: var(--mono); font-size: .72rem; color: var(--muted); text-decoration: underline; cursor: pointer; }
 .mini:hover { color: var(--ink); }
-.mini--go { color: var(--leaf); font-weight: 600; text-decoration: none; border: 1px solid var(--leaf); border-radius: var(--r); padding: .1rem .5rem; }
+.mini--go { color: var(--accent); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); border-radius: var(--r); padding: .1rem .5rem; }
 
-.stepper { display: inline-grid; grid-template-columns: 1.9rem 2.4rem 1.9rem; align-items: center; border: 1px solid var(--leaf); border-radius: var(--r); overflow: hidden; }
-.stepper button { background: var(--leaf); color: #FFF; border: 0; padding: .3rem 0; cursor: pointer; line-height: 1; font-size: 1rem; }
+.stepper { display: inline-grid; grid-template-columns: 1.9rem 2.4rem 1.9rem; align-items: center; border: 1px solid var(--accent); border-radius: var(--r); overflow: hidden; }
+.stepper button { background: var(--accent); color: #FFF; border: 0; padding: .3rem 0; cursor: pointer; line-height: 1; font-size: 1rem; }
 .stepper output { text-align: center; font-family: var(--mono); font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stepper--small { grid-template-columns: 1.5rem 2rem 1.5rem; }
 
 .tag { font-family: var(--mono); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; padding: .16rem .35rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
 .tag--offer { background: var(--amber); border-color: var(--amber); color: var(--tag-ink); font-weight: 700; }
-.tag--in { border-color: var(--leaf); color: var(--leaf); }
+.tag--in { border-color: var(--accent); color: var(--accent); }
 .pill { font-family: var(--mono); font-size: .68rem; color: var(--muted); }
-.pill--done { color: var(--leaf); }
+.pill--done { color: var(--accent); }
 
 /* ---------- the week ---------- */
 .meals { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -211,22 +195,22 @@ code { font-family: var(--mono); font-size: .9em; }
 .sums { display: grid; gap: .35rem; }
 .sum { display: flex; justify-content: space-between; font-size: .85rem; }
 .sum span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.sum--save { color: var(--leaf); }
+.sum--save { color: var(--accent); }
 .sum--total { border-top: 1px solid var(--line); margin-top: .35rem; padding-top: .5rem; font-family: var(--display); font-weight: 700; font-size: 1.15rem; align-items: baseline; }
 .sum--total span:last-child { font-family: var(--mono); font-size: 1.15rem; }
 
 .progress { margin-top: .8rem; }
 .progress__track { height: 5px; background: var(--paper); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
-.progress__fill { width: 100%; height: 100%; background: var(--leaf); transform-origin: left center; transition: transform .35s ease; }
+.progress__fill { width: 100%; height: 100%; background: var(--accent); transform-origin: left center; transition: transform .35s ease; }
 .progress__note { margin-top: .35rem; font-family: var(--mono); font-size: .68rem; color: var(--muted); }
 
 .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
 .slot { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .1rem .6rem; width: 100%; text-align: left; background: none; border: 1px solid var(--line); border-radius: var(--r); padding: .45rem .6rem; cursor: pointer; }
-.slot:hover { border-color: var(--leaf); }
-.slot[aria-pressed="true"] { border-color: var(--leaf); background: color-mix(in srgb, var(--leaf) 10%, transparent); }
+.slot:hover { border-color: var(--accent); }
+.slot[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .slot__when { font-size: .85rem; font-weight: 600; }
 .slot__fee { grid-column: 2; grid-row: 1 / span 2; text-align: right; font-family: var(--mono); font-size: .8rem; font-variant-numeric: tabular-nums; }
-.slot__fee--free { color: var(--leaf); font-weight: 600; }
+.slot__fee--free { color: var(--accent); font-weight: 600; }
 .slot__left { grid-column: 1; font-family: var(--mono); font-size: .68rem; color: var(--muted); }
 
 .handoff { display: grid; gap: .6rem; }
@@ -289,8 +273,18 @@ code { font-family: var(--mono); font-size: .9em; }
    Note: the class is `retailer`, not `live` — `.live` is the fixed status
    toast at the bottom of the page, and reusing it made this panel float. */
 .retailer__body { display: grid; gap: .7rem; }
-.retailer__session { font-size: .8rem; color: var(--muted); }
-.retailer__session--off { color: var(--ink); }
+/* Connection status. Deliberately the loudest thing in the panel: on a phone
+   it is the only way to know whether any of this is reaching Tesco. */
+.conn { display: grid; gap: .2rem; padding: .55rem .65rem; border-radius: var(--r); background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.conn--good { background: color-mix(in srgb, var(--accent) 11%, transparent); }
+.conn--bad { background: color-mix(in srgb, var(--price) 10%, transparent); }
+.conn__state { display: flex; align-items: center; gap: .45rem; font-size: .92rem; }
+.conn__dot { width: .55rem; height: .55rem; border-radius: 99px; background: var(--muted); flex: none; }
+.conn--good .conn__dot { background: var(--accent); }
+.conn--bad .conn__dot { background: var(--price); }
+.conn__detail { font-size: .78rem; color: var(--muted); }
+.conn .mini { justify-self: start; }
+
 .retailer__session code, .notice code { background: var(--paper); padding: 0 .2rem; border-radius: 2px; }
 
 .notice { font-size: .8rem; background: color-mix(in srgb, var(--muted) 10%, transparent); border-radius: var(--r); padding: .4rem .55rem; }
