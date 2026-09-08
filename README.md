@@ -25,7 +25,7 @@ Then open **http://localhost:5173**.
 > starts and the browser shows `ERR_CONNECTION_REFUSED`. One command per line works everywhere;
 > `;` chains them in any PowerShell, and `&&` works in PowerShell 7+ and in cmd, bash and zsh.
 
-Other scripts: `npm test` (48 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
+Other scripts: `npm test` (80 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
 
 ### If the page will not load
 
@@ -46,6 +46,7 @@ The pipeline is four pure functions, each testable on its own:
 | 2. Consolidate | `src/domain/consolidate.ts` | Scales each meal to the servings you are cooking, then sums per ingredient across the week, remembering which recipes asked |
 | 3. Match | `src/domain/match.ts` | Picks the product that covers each requirement most cheaply in whole packs, keeps the runners-up as alternatives, skips cupboard staples |
 | 4. Basket | `src/domain/basket.ts` | Tops the basket up to the plan (never doubles it), totals goods, offers and delivery |
+| 5. Live (optional) | `src/domain/liveMatch.ts`, `server/` | Searches a real retailer, reads pack sizes out of product titles, and flags anything it cannot read rather than guessing |
 
 Data lives in `src/data/`: 43 ingredients, 51 product lines with real pack sizes, 12 recipes.
 
@@ -63,12 +64,37 @@ Data lives in `src/data/`: 43 ingredients, 51 product lines with real pack sizes
 - **Pantry.** Olive oil, flour, stock cubes, garlic, purée and Worcestershire sauce start ticked as
   already-in-the-cupboard, and any line can be toggled.
 
+## Connecting a real supermarket basket
+
+The plan can be pushed into a real online basket, using a session cookie you copy from your own
+signed-in browser tab. Two processes, because the browser cannot hold that cookie safely:
+
+```
+npm run server        # terminal 1 — holds the session, talks to the retailer
+npm run dev           # terminal 2 — the app
+```
+
+`npm run server:mock` runs the same flow against a built-in mock shop, with no real account
+involved — worth doing first.
+
+Setup, the security rules that come with handling a session cookie, and what to do when it
+expires: **[docs/live-basket.md](docs/live-basket.md)**. The short version:
+
+- The cookie is a credential worth as much as your password. It stays in your home directory, is
+  read only by the local server, and never reaches the page, a log, or this repo.
+- No retailer's endpoints are hard-coded here. Copy `retailer.config.example.json` to
+  `retailer.config.json` and fill in what you see in DevTools.
+- Automating a retailer account is very likely against their terms of use. Requests go one at a
+  time with a gap; nothing is ever checked out or paid for.
+- The app always **reads the basket back** after adding, and shows the retailer's own total
+  separately from our estimate — theirs includes delivery and offers, and is the one that counts.
+
 ## What is not built
 
-- **A real retailer basket.** Tesco, Sainsbury's and Ocado all gate their basket APIs behind
-  partner credentials, so the app exports the list (copy to clipboard, CSV) instead.
-  `src/domain/handoff.ts` defines the `BasketTarget` interface a real adapter would implement.
-- Accounts, saved plans across devices, live stock or live prices — prices are static sample data.
+- **Checkout.** Nothing pays for anything, by design.
+- Retailer endpoints for any specific shop — that is config you supply (see above).
+- Accounts, saved plans across devices, or live prices in the planning catalogue — the 51 product
+  lines used for planning are static sample data.
 - Nutrition, leftovers, or carrying an ingredient over to next week.
 
 ## Layout

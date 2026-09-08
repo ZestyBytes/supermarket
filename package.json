@@ -14,7 +14,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "server": "node server/index.mjs",
+    "server:mock": "node server/index.mjs --mock",
+    "tesco:import": "node scripts/import-session.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

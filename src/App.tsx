@@ -14,6 +14,7 @@ import { RecipeLibrary } from "./ui/RecipeLibrary";
 import { ShoppingList } from "./ui/ShoppingList";
 import { Basket } from "./ui/Basket";
 import { Aisles } from "./ui/Aisles";
+import { LivePanel } from "./ui/LivePanel";
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
 const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
@@ -174,6 +175,8 @@ export function App() {
                 onAddAll={() => addPlanToBasket()}
                 onAddOne={(productId) => addPlanToBasket(productId)}
               />
+
+              <LivePanel requirements={match.lines.map((line) => line.requirement)} />
 
               <RecipeLibrary recipes={RECIPES} plan={plan} onAdd={addMeal} />
             </>

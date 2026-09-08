@@ -123,8 +123,8 @@ export function Basket({ lines, sums, slots, slotId, onSlot, onQty, onEmpty, onC
         </div>
         <div className="card__body handoff">
           <p className="handoff__note">
-            No UK supermarket opens its basket API without partner credentials, so this exports the
-            list instead. A retailer adapter drops into <code>src/domain/handoff.ts</code>.
+            For a shop you will do in person, or a retailer this app cannot reach. To push the week
+            into a real online basket, use <strong>Your real basket</strong> on the plan.
           </p>
           <div className="handoff__acts">
             <button className="btn" type="button" onClick={onCopy} disabled={lines.length === 0}>

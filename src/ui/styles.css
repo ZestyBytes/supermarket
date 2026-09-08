@@ -242,3 +242,36 @@ code { font-family: var(--mono); font-size: .9em; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- retailer panel ----------
+   Note: the class is `retailer`, not `live` — `.live` is the fixed status
+   toast at the bottom of the page, and reusing it made this panel float. */
+.retailer__body { display: grid; gap: .7rem; }
+.retailer__session { font-size: .8rem; color: var(--muted); }
+.retailer__session--off { color: var(--ink); }
+.retailer__session code, .notice code { background: var(--paper); padding: 0 .2rem; border-radius: 2px; }
+
+.notice { font-size: .8rem; border-left: 2px solid var(--line); padding-left: .6rem; }
+.notice--bad { border-color: var(--price); }
+.notice--warn { border-color: var(--amber); }
+.notice__how { color: var(--muted); }
+
+.retailer__progress { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+.retailer__lines { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; max-height: 15rem; overflow-y: auto; }
+.retailer__line { display: grid; grid-template-columns: 1fr auto; gap: 0 .5rem; padding-bottom: .3rem; border-bottom: 1px solid var(--line); }
+.retailer__name { font-size: .82rem; font-weight: 600; }
+.retailer__packs { font-family: var(--mono); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.retailer__need { grid-column: 1 / -1; font-family: var(--mono); font-size: .68rem; color: var(--muted); }
+
+.retailer__review { border: 1px dashed var(--amber); border-radius: var(--r); padding: .5rem .6rem; display: grid; gap: .3rem; }
+.retailer__review ul { margin: 0; padding-left: 1rem; font-size: .78rem; display: grid; gap: .2rem; }
+
+.retailer__sum { font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+.retailer__basket { border-top: 1px solid var(--line); padding-top: .6rem; display: grid; gap: .3rem; }
+.retailer__basket ul { margin: 0; padding-left: 1rem; font-size: .8rem; display: grid; gap: .15rem; }
+.retailer__total { font-size: .85rem; display: grid; gap: .15rem; }
+.retailer__total strong { font-family: var(--mono); font-size: 1.05rem; }
+.retailer__caveat { font-size: .72rem; color: var(--muted); }
+
+.retailer__acts { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.retailer__note { font-size: .72rem; color: var(--muted); }

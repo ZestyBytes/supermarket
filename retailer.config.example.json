@@ -1,0 +1,48 @@
+{
+  "$comment": [
+    "Endpoints for the retailer this app talks to. Copy to retailer.config.json and fill in.",
+    "No retailer's internal API is hard-coded in this repo: guessing endpoints produces a client",
+    "that fails in ways that look like bugs elsewhere. Read the real request out of DevTools",
+    "(Network tab, on the retailer's own site) and describe it here.",
+    "This file holds URLs and response shapes only. The session cookie never goes in it."
+  ],
+  "retailer": "tesco",
+  "baseUrl": "https://www.example-retailer.com",
+  "headers": {
+    "accept": "application/json"
+  },
+  "search": {
+    "method": "GET",
+    "path": "/api/search?query={query}&count={limit}",
+    "results": "data.results[]",
+    "fields": {
+      "id": "id",
+      "title": "title",
+      "price": "price.actual",
+      "size": "size",
+      "url": "url"
+    }
+  },
+  "basket": {
+    "read": {
+      "method": "GET",
+      "path": "/api/basket",
+      "results": "data.items[]",
+      "total": "data.total.value",
+      "fields": {
+        "id": "product.id",
+        "title": "product.title",
+        "qty": "quantity",
+        "price": "product.price.actual"
+      }
+    },
+    "add": {
+      "method": "POST",
+      "path": "/api/basket/items",
+      "body": {
+        "productId": "{productId}",
+        "quantity": "{qty}"
+      }
+    }
+  }
+}
