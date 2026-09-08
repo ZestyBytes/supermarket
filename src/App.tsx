@@ -118,15 +118,15 @@ export function App() {
               This week
             </button>
             <button type="button" aria-pressed={view === "aisles"} onClick={() => setView("aisles")}>
-              Browse aisles
+              Sample catalogue
             </button>
           </div>
-          <div className="masthead__basket">
+          {view === 'aisles' && <div className="masthead__basket">
             <span className="label">Basket</span>
             <strong>
               {sums.items} · {money(sums.total)}
             </strong>
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -176,7 +176,7 @@ export function App() {
                 onAddOne={(productId) => addPlanToBasket(productId)}
               />
 
-              <LivePanel requirements={match.lines.map((line) => line.requirement)} />
+              <LivePanel key={JSON.stringify([requirements, pantryIds])} requirements={requirements.filter(r => !pantry.has(r.ingredient.id))} />
 
               <RecipeLibrary recipes={RECIPES} plan={plan} onAdd={addMeal} />
             </>
@@ -185,7 +185,7 @@ export function App() {
           )}
         </div>
 
-        <Basket
+        {view === 'aisles' ? <Basket
           lines={basket}
           sums={sums}
           slots={SLOTS}
@@ -195,7 +195,7 @@ export function App() {
           onEmpty={() => setBasket([])}
           onCopy={copyList}
           onCsv={downloadCsv}
-        />
+        /> : <aside className="pane"><section className="card"><div className="card__body"><h2>Your Tesco shop</h2><p>1. Choose meals and servings.</p><p>2. Exclude ingredients you already have.</p><p>3. Find and review live Tesco products.</p><p>4. Add to Tesco and check out there.</p><a href="#live-head">Review Tesco products ↓</a><p>Delivery and checkout stay on Tesco.</p></div></section></aside>}
       </main>
 
       <p className="live" role="status" aria-live="polite">

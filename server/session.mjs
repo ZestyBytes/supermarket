@@ -18,7 +18,7 @@ export function sessionPath() {
   return process.env.SUPERMARKET_SESSION_FILE || DEFAULT_PATH;
 }
 
-export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), authorization } = {}) {
+export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), authorization, apiHeaders, cookies } = {}) {
   const names = cookieNames(cookie);
   if (names.length === 0) {
     throw new Error("That does not look like a Cookie header — expected name=value pairs separated by ';'.");
@@ -33,6 +33,8 @@ export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), 
     // Some retailers authenticate the API with a bearer token rather than the
     // cookie. It is the same kind of secret, so it lives in the same place.
     ...(authorization ? { authorization } : {}),
+    ...(apiHeaders ? { apiHeaders } : {}),
+    ...(cookies ? { cookies } : {}),
   };
 
   mkdirSync(dirname(file), { recursive: true });
@@ -47,7 +49,7 @@ export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), 
   // already restricts access there.
   if (platform() !== "win32") chmodSync(file, 0o600);
 
-  return { ...record, cookie: undefined, file };
+  return { ...describeSession(record), file };
 }
 
 export function loadSession({ file = sessionPath() } = {}) {
@@ -66,7 +68,7 @@ export function updateSession(patch, { file = sessionPath() } = {}) {
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
   writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
   if (platform() !== "win32") chmodSync(file, 0o600);
-  return { ...next, cookie: undefined, authorization: undefined };
+  return { ...describeSession(next), file };
 }
 
 export function forgetSession({ file = sessionPath() } = {}) {

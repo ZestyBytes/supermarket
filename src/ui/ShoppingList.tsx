@@ -1,6 +1,5 @@
 import type { MatchResult } from "../domain/match";
-import { formatQty, money, unitPrice } from "../domain/units";
-import { PRODUCTS } from "../data/products";
+import { formatQty } from "../domain/units";
 import type { Aisle } from "../domain/types";
 
 interface Props {
@@ -23,16 +22,7 @@ const AISLE_NAMES: Record<Aisle, string> = {
   frozen: "Frozen",
 };
 
-export function ShoppingList({
-  match,
-  gaps,
-  outstandingCost,
-  onTogglePantry,
-  onPrefer,
-  onAddAll,
-  onAddOne,
-}: Props) {
-  const weekCost = match.lines.reduce((sum, line) => sum + line.cost, 0);
+export function ShoppingList({ match, onTogglePantry }: Props) {
   let lastAisle: Aisle | null = null;
 
   return (
@@ -40,7 +30,7 @@ export function ShoppingList({
       <div className="panel__head">
         <h2 id="list-head">Shopping list</h2>
         <span className="label">
-          {match.lines.length} products · {money(weekCost)} for the week
+          {match.lines.length} ingredients to shop for
         </span>
       </div>
 
@@ -52,9 +42,7 @@ export function ShoppingList({
         <ul className="list">
           {match.lines.map((line) => {
             const { ingredient } = line.requirement;
-            const gap = gaps.get(line.product.id) ?? 0;
             const header = ingredient.aisle !== lastAisle ? (lastAisle = ingredient.aisle) : null;
-            const options = [line.product, ...line.alternatives].sort((a, b) => a.packQty - b.packQty);
 
             return (
               <li key={ingredient.id}>
@@ -71,39 +59,9 @@ export function ShoppingList({
                         </span>
                       )}
                     </p>
-                    <p className="row__buy">
-                      Buy <strong>{line.packs} × {line.product.size}</strong> {line.product.name}
-                      <span className="row__unit"> · {unitPrice(line.product.price, line.product.packQty, ingredient.unit)}</span>
-                      {line.surplus > 0 && (
-                        <span className="row__spare"> · {formatQty(line.surplus, ingredient)} spare</span>
-                      )}
-                    </p>
-                    {options.length > 1 && (
-                      <label className="row__swap">
-                        <span className="sr">Choose a different pack for {ingredient.name}</span>
-                        <select
-                          value={line.product.id}
-                          onChange={(e) => onPrefer(ingredient.id, e.target.value)}
-                        >
-                          {options.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.size} — {option.name} at {money(option.price)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
                   </div>
 
                   <div className="row__money">
-                    <span className="row__cost">{money(line.cost)}</span>
-                    {gap > 0 ? (
-                      <button className="mini mini--go" type="button" onClick={() => onAddOne(line.product.id)}>
-                        Add {gap}
-                      </button>
-                    ) : (
-                      <span className="pill pill--done">In basket</span>
-                    )}
                     <button className="mini" type="button" onClick={() => onTogglePantry(ingredient.id)}>
                       I have it
                     </button>
@@ -140,15 +98,7 @@ export function ShoppingList({
         </p>
       )}
 
-      <div className="panel__foot">
-        <p className="panel__sum">
-          <strong>{money(outstandingCost)}</strong> still to add · {money(weekCost)} for the whole
-          week · {PRODUCTS.length} lines stocked
-        </p>
-        <button className="btn btn--go" type="button" disabled={outstandingCost === 0} onClick={onAddAll}>
-          {outstandingCost === 0 ? "Basket covers the plan" : `Add the week to my basket · ${money(outstandingCost)}`}
-        </button>
-      </div>
+      <p>Next: find Tesco products below, review the packs, then add them to Tesco.</p>
     </section>
   );
 }

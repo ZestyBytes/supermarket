@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addToBasket,
   getSession,
   readBasket,
   RetailerError,
-  search,
+  searchBatch,
   type RetailerBasket,
   type SessionState,
 } from "../domain/retailerClient";
@@ -17,6 +17,7 @@ import {
 } from "../domain/liveMatch";
 import { formatQty, money } from "../domain/units";
 import type { Requirement } from "../domain/types";
+import { newAttemptId } from "../domain/ids";
 
 interface Props {
   /** What the week needs, after consolidation and cupboard exclusions. */
@@ -26,6 +27,10 @@ interface Props {
 type Stage = "idle" | "searching" | "matched" | "sending" | "sent";
 
 const LAST_SEND_KEY = "supermarket.lastSend";
+
+/** The setup step, in one place: three different failures all end here. */
+const CONNECT_HOW =
+  "On the computer running the app: run npm run connect, open the Supermarket Tesco Connect extension in your usual Chrome, and click Connect.";
 
 /** What the last real call to the retailer proved, rather than what we assume. */
 type Connection =
@@ -44,6 +49,7 @@ export function LivePanel({ requirements }: Props) {
   const [progress, setProgress] = useState("");
   const [reach, setReach] = useState<"checking" | "ok" | "absent">("checking");
   const [conn, setConn] = useState<Connection>({ state: "unknown" });
+  const attemptId = useRef(newAttemptId());
 
   useEffect(() => {
     refreshSession();
@@ -83,26 +89,25 @@ export function LivePanel({ requirements }: Props) {
     setStage("searching");
     setProblem(null);
     const found = new Map<string, RetailerProduct[]>();
+    const failures = new Set<string>();
 
-    // Sequential on purpose: the server queues these anyway, and a burst is
-    // what gets the searches refused.
-    for (const [index, requirement] of requirements.entries()) {
-      setProgress(`Searching ${index + 1} of ${requirements.length}: ${requirement.ingredient.name}`);
-      try {
-        found.set(requirement.ingredient.id, await search(searchTermFor(requirement)));
-      } catch (error) {
-        if (error instanceof RetailerError && (error.code === "SESSION_EXPIRED" || error.code === "OFFLINE")) {
-          report(error);
-          setStage("idle");
-          setProgress("");
-          return;
+    setProgress(`Finding products for ${requirements.length} ingredients…`);
+    try {
+      for (let offset = 0; offset < requirements.length; offset += 4) {
+        const group = requirements.slice(offset, offset + 4);
+        const results = await searchBatch(group.map(searchTermFor));
+        for (const requirement of group) {
+          const result = results.find(r => r.query === searchTermFor(requirement));
+          if (!result || result.error) failures.add(requirement.ingredient.id);
+          found.set(requirement.ingredient.id, result?.results ?? []);
         }
-        found.set(requirement.ingredient.id, []);
+        setProgress(`Searched ${Math.min(offset + 4, requirements.length)} of ${requirements.length} ingredients…`);
       }
-    }
+      attemptId.current = newAttemptId();
+    } catch (error) { report(error); setStage("idle"); setProgress(""); return; }
 
     setProgress("");
-    setMatch(chooseLiveProducts(found, requirements));
+    setMatch(chooseLiveProducts(found, requirements, failures));
     setStage("matched");
   }
 
@@ -124,6 +129,7 @@ export function LivePanel({ requirements }: Props) {
     try {
       const result = await addToBasket(
         match.choices.map((choice) => ({ productId: choice.product.id, qty: choice.packs })),
+        attemptId.current,
       );
       setBasket(result.basket);
       writeLastSend(fingerprint);
@@ -168,6 +174,21 @@ export function LivePanel({ requirements }: Props) {
 
   const estimated = match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0;
 
+  function replaceProduct(ingredientId: string, productId: string) {
+    if (!match) return;
+    const current = match.choices.find(c => c.requirement.ingredient.id === ingredientId);
+    if (!current) return;
+    const candidates = [current.product, ...current.alternatives];
+    const product = candidates.find(p => p.id === productId);
+    if (!product) return;
+    const replacement = chooseLiveProducts(new Map([[ingredientId, [product]]]), [current.requirement]).choices[0];
+    if (!replacement) return;
+    replacement.alternatives = candidates.filter(p => p.id !== productId);
+    setMatch({ ...match, choices: match.choices.map(c => c === current ? replacement : c) });
+    attemptId.current = newAttemptId();
+    setStage('matched');
+  }
+
   if (reach === "absent") return <PlanningOnly />;
 
   return (
@@ -184,7 +205,7 @@ export function LivePanel({ requirements }: Props) {
           <p className={`notice notice--${problem.code === "PARTIAL" ? "warn" : "bad"}`}>
             <strong>{labelFor(problem.code)}</strong> {problem.message}
             {problem.code === "SESSION_EXPIRED" && (
-              <span className="notice__how"> Sign in again in your browser, then run <code>npm run tesco:import</code>.</span>
+              <span className="notice__how"> Run <code>npm run connect</code>, click Connect in the Supermarket Tesco Connect Chrome extension, then refresh your Tesco basket.</span>
             )}
           </p>
         )}
@@ -204,6 +225,11 @@ export function LivePanel({ requirements }: Props) {
                     for {formatQty(choice.requirement.qty, choice.requirement.ingredient)}
                     {choice.surplus > 0 && ` · ${formatQty(choice.surplus, choice.requirement.ingredient)} spare`}
                   </span>
+                  {choice.alternatives.length > 0 && <label className="retailer__need">Change product for {choice.requirement.ingredient.name}
+                    <select aria-label={`Tesco product for ${choice.requirement.ingredient.name}`} value={choice.product.id} disabled={stage === 'sending' || stage === 'sent'} onChange={e => replaceProduct(choice.requirement.ingredient.id, e.target.value)}>
+                      {[choice.product, ...choice.alternatives].map(p => <option key={p.id} value={p.id}>{p.title} — {money(p.price)}</option>)}
+                    </select>
+                  </label>}
                 </li>
               ))}
             </ul>
@@ -211,15 +237,14 @@ export function LivePanel({ requirements }: Props) {
             {match.review.length > 0 && (
               <div className="retailer__review">
                 <p className="label">
-                  {match.review.length} needing your eye — not added automatically
+                  {match.review.length} ingredients need a match
                 </p>
                 <ul>
-                  {match.review.slice(0, 6).map((item) => (
+                  {match.review.map((item) => (
                     <li key={item.requirement.ingredient.id}>
                       <strong>{item.requirement.ingredient.name}</strong> — {reasonFor(item.reason)}
                     </li>
                   ))}
-                  {match.review.length > 6 && <li>…and {match.review.length - 6} more.</li>}
                 </ul>
               </div>
             )}
@@ -263,7 +288,7 @@ export function LivePanel({ requirements }: Props) {
             className="btn btn--go"
             type="button"
             onClick={send}
-            disabled={!match || match.choices.length === 0 || stage === "sending"}
+            disabled={!match || match.review.length > 0 || match.choices.length === 0 || stage !== "matched"}
           >
             {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} lines to my basket`}
           </button>
@@ -367,14 +392,14 @@ function describe(
       return {
         tone: "bad",
         headline: "Not connected — Tesco signed you out",
-        detail: "On the computer running the app: sign in to Tesco in your browser, then run npm run tesco:import.",
+        detail: `Tesco ended the session. ${CONNECT_HOW}`,
       };
     }
     if (conn.code === "SESSION_MISSING") {
       return {
         tone: "bad",
         headline: "Not connected — no Tesco session yet",
-        detail: "On the computer running the app, run npm run tesco:import and paste the details from a signed-in Tesco tab.",
+        detail: CONNECT_HOW,
       };
     }
     if (conn.code === "NOT_CONFIGURED" || conn.code === "UNSAFE_CONFIG") {
@@ -390,7 +415,7 @@ function describe(
     return {
       tone: "bad",
       headline: "Not connected — no Tesco session yet",
-      detail: "On the computer running the app, run npm run tesco:import and paste the details from a signed-in Tesco tab.",
+      detail: CONNECT_HOW,
     };
   }
   return { tone: "wait", headline: "Not checked yet", detail: "Tap Check again to see whether Tesco still accepts the session." };
@@ -417,8 +442,9 @@ function labelFor(code: string): string {
   }
 }
 
-function reasonFor(reason: "no-results" | "unreadable-size" | "wrong-unit"): string {
+function reasonFor(reason: "no-results" | "unreadable-size" | "wrong-unit" | "search-failed"): string {
   switch (reason) {
+    case 'search-failed': return 'Tesco search failed temporarily. Click Find live products to retry.';
     case "no-results":
       return "nothing came back from search";
     case "unreadable-size":
