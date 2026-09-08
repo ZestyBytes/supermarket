@@ -40,17 +40,19 @@ the app asks whether a local server is there and says plainly when one is not, r
 a button that cannot work.
 
 **To shop for real from your phone**, keep the session on your computer and reach it across your own
-WiFi instead:
+WiFi instead. One command:
 
 ```
-npm run server
-npm run dev:host
+npm run start:host
 ```
 
-`dev:host` prints a **Network** address such as `http://192.168.1.42:5173`. Open that on the phone,
-with both devices on the same WiFi. The page asks your computer, your computer asks Tesco, and the
-session never goes anywhere. Whether the panel is live is decided by asking the server, not by the
-address, so a phone on the network gets the real thing.
+It prints the address to open on the phone, such as `http://192.168.1.42:5173`. Both devices need to
+be on the same WiFi.
+
+Only the page is offered to the network. The API stays on loopback and refuses anything that is not
+local — the dev server proxy, running on the same machine, is the only way to it. Whether the panel
+is live is decided by asking the server, not by the address, so a phone on the network gets the real
+thing.
 
 ### If the page will not load
 

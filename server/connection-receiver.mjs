@@ -8,7 +8,7 @@ const schema = z.object({ cookie: clean, headers: z.object({
   'user-agent': clean.optional(), origin: z.literal('https://www.tesco.com').optional(),
   referer: clean.refine(v => v.startsWith('https://www.tesco.com/')).optional(),
 }).strict() }).strict();
-export function createConnectionReceiver({ extensionId, verify, save, onConnected = () => {} }) {
+export function createConnectionReceiver({ extensionId, verify, save, onConnected = () => {}, once = true }) {
   const origin = `chrome-extension://${extensionId}`;
   const nonce = randomBytes(32).toString('hex');
   let busy = false, done = false;
@@ -39,7 +39,7 @@ export function createConnectionReceiver({ extensionId, verify, save, onConnecte
       const session = { cookie: input.cookie, authorization, apiHeaders };
       const basket = await verify(session);
       await save(session);
-      done = true;
+      done = once;
       send(200, { ok: true });
       onConnected(basket);
     } catch (error) { send(502, { ok: false, code: ['SESSION_EXPIRED', 'SESSION_MISSING', 'RETAILER_ERROR'].includes(error?.code) ? error.code : 'VERIFICATION_FAILED' }); }

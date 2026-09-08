@@ -30,7 +30,7 @@ const LAST_SEND_KEY = "supermarket.lastSend";
 
 /** The setup step, in one place: three different failures all end here. */
 const CONNECT_HOW =
-  "On the computer running the app: run npm run connect, open the Supermarket Tesco Connect extension in your usual Chrome, and click Connect.";
+  "On the computer running the app: open the Supermarket extension in Chrome, click Connect, then refresh your Tesco tab.";
 
 /** What the last real call to the retailer proved, rather than what we assume. */
 type Connection =

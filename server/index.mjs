@@ -5,6 +5,7 @@ import { createMockAdapter } from "./adapters/mock.mjs";
 import { createQueue } from "./queue.mjs";
 import { describeSession, forgetSession, loadSession } from "./session.mjs";
 import { submitBasket, submissionSchema } from "./basket.mjs";
+import { startConnectionReceiver } from "./connect.mjs";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const MOCK = process.argv.includes("--mock") || process.env.RETAILER === "mock";
@@ -77,7 +78,10 @@ server.on("error", (error) => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Supermarket API: http://127.0.0.1:${PORT} (${MOCK ? "mock" : "Open Supermarkets / Tesco"})`);
   // Say it here rather than letting the first search fail with "signed out".
-  if (!MOCK && !loadSession()) console.log("Not connected to Tesco yet — run: npm run connect");
+  if (!MOCK) {
+    startConnectionReceiver();
+    if (!loadSession()) console.log("Not connected to Tesco yet — open the Supermarket extension in Chrome and click Connect.");
+  }
 });
 function send(res, status, payload) { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(payload)); }
 async function readJson(req) {

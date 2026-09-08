@@ -9,8 +9,8 @@
   },
   "scripts": {
     "start": "node scripts/start.mjs",
+    "start:host": "node scripts/start.mjs --host",
     "dev": "vite",
-    "dev:host": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
