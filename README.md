@@ -35,7 +35,21 @@ so the planner can be opened on a phone without checking anything out. Turn it o
 
 The hosted copy is the meal planner only. Adding to a real basket needs the local server that holds
 your session, and a session that never leaves your machine cannot follow the app onto the web — so
-the app detects a static build and says so, rather than offering a button that cannot work.
+the app asks whether a local server is there and says plainly when one is not, rather than offering
+a button that cannot work.
+
+**To shop for real from your phone**, keep the session on your computer and reach it across your own
+WiFi instead:
+
+```
+npm run server
+npm run dev:host
+```
+
+`dev:host` prints a **Network** address such as `http://192.168.1.42:5173`. Open that on the phone,
+with both devices on the same WiFi. The page asks your computer, your computer asks Tesco, and the
+session never goes anywhere. Whether the panel is live is decided by asking the server, not by the
+address, so a phone on the network gets the real thing.
 
 ### If the page will not load
 

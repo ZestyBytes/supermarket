@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   addToBasket,
   getSession,
-  hasLocalServer,
   readBasket,
   RetailerError,
   search,
@@ -36,14 +35,11 @@ export function LivePanel({ requirements }: Props) {
   const [basket, setBasket] = useState<RetailerBasket | null>(null);
   const [problem, setProblem] = useState<{ code: string; message: string } | null>(null);
   const [progress, setProgress] = useState("");
-
-  const local = hasLocalServer();
+  const [reach, setReach] = useState<"checking" | "ok" | "absent">("checking");
 
   useEffect(() => {
-    if (local) refreshSession();
-  }, [local]);
-
-  if (!local) return <PlanningOnly />;
+    refreshSession();
+  }, []);
 
   async function refreshSession() {
     try {
@@ -51,8 +47,18 @@ export function LivePanel({ requirements }: Props) {
       setSession(state.session);
       setMode(state.mode);
       setProblem(null);
+      setReach("ok");
     } catch (error) {
       setSession(null);
+      // Nothing answering at all is a different thing from a retailer saying
+      // no, and only one of them means this copy can never work. A phone on
+      // the same WiFi as the server reaches it fine, so this is the answer to
+      // trust rather than what the address bar says.
+      if (error instanceof RetailerError && error.code === "OFFLINE") {
+        setReach("absent");
+        return;
+      }
+      setReach("ok");
       report(error);
     }
   }
@@ -130,6 +136,8 @@ export function LivePanel({ requirements }: Props) {
   }
 
   const estimated = match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0;
+
+  if (reach === "absent") return <PlanningOnly />;
 
   return (
     <section className="card retailer" aria-labelledby="live-head">
@@ -258,14 +266,15 @@ function PlanningOnly() {
       </div>
       <div className="card__body retailer__body">
         <p className="notice">
-          <strong>Not available on this copy.</strong> Adding to a real Tesco basket needs the local
-          server, which holds your session and runs only on your own machine. Everything else on this
-          page — the meals, the consolidated list, the quantities and totals — works here in full.
+          <strong>No local server answered.</strong> Adding to a real Tesco basket needs the small
+          server that holds your session, and nothing is listening for this page. Everything else
+          here — the meals, the consolidated list, the quantities and totals — works in full.
         </p>
         <p className="retailer__note">
-          To use a real basket, clone the repo and run <code>npm run server</code> alongside{" "}
-          <code>npm run dev</code>. Your session never leaves that machine, which is the whole reason
-          it cannot follow the app to a hosted page.
+          On a hosted copy there is nothing to reach: your session stays on your own machine, which
+          is exactly why it cannot follow the app onto the web. To shop for real, run{" "}
+          <code>npm run server</code> and <code>npm run dev -- --host</code> on that machine, then
+          open its address from your phone on the same WiFi.
         </p>
       </div>
     </section>

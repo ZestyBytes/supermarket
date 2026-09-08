@@ -45,16 +45,14 @@ export interface RetailerBasket {
 const BASE = "/api";
 
 /**
- * Whether a local server could possibly be listening for this page.
+ * Whether the page is open on the same machine as the server.
  *
- * The session lives in a process on the shopper's own machine, reached through
- * the dev server's `/api` proxy. A build served from anywhere else — GitHub
- * Pages, a phone on the sofa — has no such process behind `/api`, and the
- * requests land on the static host instead, which answers 404 in HTML. That
- * is indistinguishable from a retailer fault unless we check first, so the
- * app asks this before offering to talk to a retailer at all.
+ * Only used to word a failure, never to decide one. A phone on the sofa
+ * reaching the dev server across the house is not a loopback page, but the
+ * `/api` proxy still lands on a real local server — so deciding from the
+ * hostname would refuse exactly the setup that works. Ask the server instead.
  */
-export function hasLocalServer(): boolean {
+export function isLoopbackPage(): boolean {
   if (typeof window === "undefined") return false;
   const { hostname } = window.location;
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
@@ -81,9 +79,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (!payload) {
       throw new RetailerError(
         "OFFLINE",
-        hasLocalServer()
+        isLoopbackPage()
           ? "The local server is not running. Start it with: npm run server"
-          : "This copy is served as a static site, so there is no local server to reach. Run it on your own machine to use a real basket.",
+          : "Nothing answered at /api. If this is a hosted copy there is no local server to reach; if you are on a phone, check that the computer running the app is on the same network and has npm run server going.",
       );
     }
     const error = payload.error;
