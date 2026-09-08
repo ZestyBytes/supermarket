@@ -31,28 +31,35 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`. `npm run dev` r
 
 ### On a phone
 
-Every push to `main` publishes the built app to GitHub Pages, so the planner can be opened on a
-phone without checking anything out: **https://zestybytes.github.io/supermarket/**
-
-That hosted copy is the meal planner only. Adding to a real basket needs the local server that holds
-your session, and a session that never leaves your machine cannot follow the app onto the web — so
-the app asks whether a local server is there and says plainly when one is not, rather than offering
-a button that cannot work.
-
-**To shop for real from your phone**, keep the session on your computer and reach it across your own
-WiFi instead. One command:
+At home, one command:
 
 ```
 npm run start:host
 ```
 
-It prints the address to open on the phone, such as `http://192.168.1.42:5173`. Both devices need to
-be on the same WiFi.
+It prints two addresses — the computer's network address, and its name (`http://your-pc.local:5173`),
+which keeps working when the router hands out a different address. Open either on the phone, then
+**Share → Add to Home Screen**: it installs as an app with its own icon, so there is no address or
+port to type again.
 
-Only the page is offered to the network. The API stays on loopback and refuses anything that is not
-local — the dev server proxy, running on the same machine, is the only way to it. Whether the panel
-is live is decided by asking the server, not by the address, so a phone on the network gets the real
-thing.
+Everything works there, including the real Tesco basket, because the phone is talking to your own
+computer. Only the page is offered to the network — the API stays on loopback and refuses anything
+that is not local, with the dev server proxy on the same machine as the only way to it.
+
+There is also a hosted copy on GitHub Pages, published from `main`:
+**https://zestybytes.github.io/supermarket/** — useful for looking at the planner away from home, but
+it cannot touch your Tesco basket, because your session never leaves your computer. It says so
+rather than offering a button that cannot work.
+
+### A shortcut on the desktop
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\add-desktop-shortcut.ps1
+```
+
+Puts **Supermarket** on the desktop. Double-click it and both halves start and the browser opens; it
+also clears a server left running from last time, which is otherwise the usual reason it will not
+start.
 
 ### If the page will not load
 

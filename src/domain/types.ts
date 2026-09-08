@@ -55,6 +55,8 @@ export interface Recipe {
   minutes: number;
   blurb: string;
   tags: string[];
+  /** Stands in for a photo on the meal cards. Cheap, and never a stock image of the wrong dinner. */
+  emoji: string;
   ingredients: RecipeIngredient[];
 }
 

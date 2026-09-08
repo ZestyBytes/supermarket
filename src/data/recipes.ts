@@ -5,6 +5,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "bolognese",
     name: "Spaghetti Bolognese",
+    emoji: "🍝",
     serves: 4,
     minutes: 45,
     blurb: "The weeknight standard. Better on day two.",
@@ -26,6 +27,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "fajitas",
     name: "Chicken Fajitas",
+    emoji: "🌯",
     serves: 4,
     minutes: 30,
     blurb: "Everything in one pan, wraps on the table.",
@@ -45,6 +47,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "cottage-pie",
     name: "Cottage Pie",
+    emoji: "🥧",
     serves: 4,
     minutes: 75,
     blurb: "Worth the hour. Freezes in portions.",
@@ -67,6 +70,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "chicken-curry",
     name: "Chicken Curry",
+    emoji: "🍛",
     serves: 4,
     minutes: 40,
     blurb: "Tikka paste, thighs, and rice on the side.",
@@ -87,6 +91,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "salmon-potatoes",
     name: "Salmon & Potatoes",
+    emoji: "🐟",
     serves: 2,
     minutes: 25,
     blurb: "Twenty-five minutes, most of it the potatoes.",
@@ -103,6 +108,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "chilli",
     name: "Chilli con Carne",
+    emoji: "🌶️",
     serves: 4,
     minutes: 50,
     blurb: "Doubles happily; the rice does the work.",
@@ -122,6 +128,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "sausage-mash",
     name: "Sausages & Mash",
+    emoji: "🌭",
     serves: 4,
     minutes: 40,
     blurb: "Onion gravy is the whole point.",
@@ -140,6 +147,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "shepherds-pie",
     name: "Shepherd's Pie",
+    emoji: "🐑",
     serves: 4,
     minutes: 70,
     blurb: "Lamb, not beef. That is the whole difference.",
@@ -159,6 +167,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "mac-cheese",
     name: "Macaroni Cheese",
+    emoji: "🧀",
     serves: 4,
     minutes: 35,
     blurb: "Bacon on top if the week has earned it.",
@@ -175,6 +184,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "chickpea-curry",
     name: "Chickpea & Spinach Curry",
+    emoji: "🫘",
     serves: 4,
     minutes: 30,
     blurb: "Meat-free Monday, mostly from the cupboard.",
@@ -193,6 +203,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "chicken-traybake",
     name: "Chicken & Potato Traybake",
+    emoji: "🍗",
     serves: 4,
     minutes: 55,
     blurb: "One tin, one oven, nothing to watch.",
@@ -209,6 +220,7 @@ export const RECIPES: Recipe[] = [
   {
     id: "omelette",
     name: "Tomato & Cheddar Omelette",
+    emoji: "🍳",
     serves: 2,
     minutes: 15,
     blurb: "The fridge-raid supper.",

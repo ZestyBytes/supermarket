@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { networkInterfaces } from 'node:os';
+import { hostname, networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -20,9 +20,15 @@ if (onNetwork) {
   const address = Object.values(networkInterfaces())
     .flat()
     .find((net) => net && net.family === 'IPv4' && !net.internal)?.address;
+
   setTimeout(() => {
     console.log('\n  On your phone, on the same WiFi, open:');
-    console.log(`  http://${address ?? '<this computer\'s IP address>'}:5173\n`);
+    console.log(`    http://${address ?? "<this computer's IP address>"}:5173`);
+    // A router hands out a different address sooner or later, and a home-screen
+    // icon saved against the old one stops working. The computer's own name
+    // does not change, and phones resolve it on a home network.
+    console.log(`    http://${hostname().toLowerCase()}.local:5173   (keeps working if the address changes)`);
+    console.log('\n  Then use Share -> Add to Home Screen, and it opens like an app.\n');
   }, 1200);
 }
 

@@ -18,6 +18,7 @@ import {
 import { formatQty, money } from "../domain/units";
 import type { Requirement } from "../domain/types";
 import { newAttemptId } from "../domain/ids";
+import { mealsAtRisk, reasonText } from "../domain/availability";
 
 interface Props {
   /** What the week needs, after consolidation and cupboard exclusions. */
@@ -234,20 +235,7 @@ export function LivePanel({ requirements }: Props) {
               ))}
             </ul>
 
-            {match.review.length > 0 && (
-              <div className="retailer__review">
-                <p className="label">
-                  {match.review.length} ingredients need a match
-                </p>
-                <ul>
-                  {match.review.map((item) => (
-                    <li key={item.requirement.ingredient.id}>
-                      <strong>{item.requirement.ingredient.name}</strong> — {reasonFor(item.reason)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {match.review.length > 0 && <AtRisk match={match} />}
 
             <p className="retailer__sum">
               {match.choices.length} lines · about {money(estimated)} at listed prices
@@ -288,7 +276,7 @@ export function LivePanel({ requirements }: Props) {
             className="btn btn--go"
             type="button"
             onClick={send}
-            disabled={!match || match.review.length > 0 || match.choices.length === 0 || stage !== "matched"}
+            disabled={!match || match.choices.length === 0 || stage !== "matched"}
           >
             {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} lines to my basket`}
           </button>
@@ -310,6 +298,41 @@ export function LivePanel({ requirements }: Props) {
  * machine and there is no way for this page to reach it. Better to say so than
  * to let someone tap "Add to my basket" and get a shrug.
  */
+/**
+ * Which meals the shop cannot cover, and what is missing from each.
+ *
+ * A count of unresolved ingredients is not something anyone can act on. The
+ * meal is: cook it anyway and pick those bits up yourself, or swap it out.
+ * Consolidation is what makes this possible — each requirement still knows
+ * which meals asked for it.
+ */
+function AtRisk({ match }: { match: LiveMatch }) {
+  const risks = mealsAtRisk(match);
+  return (
+    <div className="risk">
+      <p className="risk__head">
+        <strong>{risks.length === 1 ? "One meal is short" : `${risks.length} meals are short`}</strong> — everything
+        else is ready to add.
+      </p>
+      <ul className="risk__meals">
+        {risks.map((risk) => (
+          <li key={risk.recipeId}>
+            <span className="risk__name">{risk.recipeName}</span>
+            <ul className="risk__bits">
+              {risk.problems.map((problem) => (
+                <li key={problem.ingredientName}>
+                  {problem.ingredientName} — {reasonText(problem.reason)}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <p className="risk__what">Swap those meals on the Meals tab, or add the rest and pick these up yourself.</p>
+    </div>
+  );
+}
+
 function PlanningOnly() {
   return (
     <section className="card retailer" aria-labelledby="live-head">
@@ -442,17 +465,6 @@ function labelFor(code: string): string {
   }
 }
 
-function reasonFor(reason: "no-results" | "unreadable-size" | "wrong-unit" | "search-failed"): string {
-  switch (reason) {
-    case 'search-failed': return 'Tesco search failed temporarily. Click Find live products to retry.';
-    case "no-results":
-      return "nothing came back from search";
-    case "unreadable-size":
-      return "the pack size is not written in the product title, so we cannot tell how much a pack holds";
-    case "wrong-unit":
-      return "the packs are sold by a different measure than the recipe asks for";
-  }
-}
 
 function readLastSend(): { fingerprint: string; at: string } | null {
   try {

@@ -1,206 +1,131 @@
 import { useMemo, useState } from "react";
 import { consolidate } from "./domain/consolidate";
-import { matchToProducts } from "./domain/match";
-import { applyPlan, outstanding, totals, type BasketLine } from "./domain/basket";
-import { asCsv, asText } from "./domain/handoff";
-import { money } from "./domain/units";
+import { surpriseWeek } from "./domain/weekPlan";
 import { INGREDIENTS } from "./data/ingredients";
-import { PRODUCTS } from "./data/products";
-import { RECIPES, SLOTS } from "./data/recipes";
+import { RECIPES } from "./data/recipes";
 import type { PlannedMeal } from "./domain/types";
 import { usePersistentState } from "./ui/usePersistentState";
-import { Planner } from "./ui/Planner";
-import { RecipeLibrary } from "./ui/RecipeLibrary";
-import { ShoppingList } from "./ui/ShoppingList";
-import { Basket } from "./ui/Basket";
-import { Aisles } from "./ui/Aisles";
+import { MealDeck } from "./ui/MealDeck";
+import { WeekBar } from "./ui/WeekBar";
+import { HaveList } from "./ui/HaveList";
 import { LivePanel } from "./ui/LivePanel";
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
 const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
 
-/** The five dinners from the brief, so the app opens on a real week. */
-const STARTER_PLAN: PlannedMeal[] = [
-  { key: "m1", recipeId: "bolognese", servings: 4 },
-  { key: "m2", recipeId: "fajitas", servings: 4 },
-  { key: "m3", recipeId: "cottage-pie", servings: 4 },
-  { key: "m4", recipeId: "chicken-curry", servings: 4 },
-  { key: "m5", recipeId: "salmon-potatoes", servings: 4 },
-];
+type Tab = "meals" | "list" | "shop";
 
 export function App() {
-  const [plan, setPlan] = usePersistentState<PlannedMeal[]>("supermarket.plan", STARTER_PLAN);
+  const [plan, setPlan] = usePersistentState<PlannedMeal[]>("supermarket.plan", []);
   const [pantryIds, setPantryIds] = usePersistentState<string[]>("supermarket.pantry", DEFAULT_PANTRY);
-  const [prefer, setPrefer] = usePersistentState<Record<string, string>>("supermarket.prefer", {});
-  const [basket, setBasket] = usePersistentState<BasketLine[]>("supermarket.basket", []);
-  const [slotId, setSlotId] = usePersistentState<string>("supermarket.slot", "slot-3");
-  const [view, setView] = useState<"plan" | "aisles">("plan");
-  const [flash, setFlash] = useState("");
+  const [servings, setServings] = usePersistentState<number>("supermarket.servings", 4);
+  const [wanted, setWanted] = usePersistentState<number>("supermarket.wanted", 5);
+  const [tab, setTab] = useState<Tab>("meals");
 
   const pantry = useMemo(() => new Set(pantryIds), [pantryIds]);
   const requirements = useMemo(() => consolidate(plan, CATALOGUE), [plan]);
-  const match = useMemo(
-    () => matchToProducts(requirements, PRODUCTS, { pantry, prefer }),
-    [requirements, pantry, prefer],
-  );
-  const gaps = useMemo(() => outstanding(basket, match.lines), [basket, match.lines]);
-  const slot = SLOTS.find((s) => s.id === slotId) ?? SLOTS[0];
-  const sums = useMemo(() => totals(basket, slot.fee), [basket, slot]);
-
-  const outstandingCost = match.lines.reduce(
-    (sum, line) => sum + (gaps.get(line.product.id) ?? 0) * line.product.price,
-    0,
-  );
+  const toBuy = useMemo(() => requirements.filter((r) => !pantry.has(r.ingredient.id)), [requirements, pantry]);
 
   function addMeal(recipeId: string) {
     const recipe = RECIPES.find((r) => r.id === recipeId);
     if (!recipe) return;
-    setPlan((current) => [
-      ...current,
-      { key: `${recipeId}-${Date.now()}`, recipeId, servings: recipe.serves },
-    ]);
-    setFlash(`${recipe.name} added to the week.`);
+    setPlan((current) => [...current, { key: `${recipeId}-${Date.now()}`, recipeId, servings }]);
   }
 
-  function addPlanToBasket(productId?: string) {
-    const lines = productId ? match.lines.filter((l) => l.product.id === productId) : match.lines;
-    const added = lines.reduce((sum, l) => sum + (gaps.get(l.product.id) ?? 0), 0);
-    setBasket((current) => applyPlan(current, lines));
-    setFlash(
-      added > 0
-        ? `${added} item${added === 1 ? "" : "s"} added to the basket.`
-        : "The basket already covers the plan.",
-    );
+  function removeRecipe(recipeId: string) {
+    setPlan((current) => current.filter((meal) => meal.recipeId !== recipeId));
   }
 
-  function setQty(productId: string, qty: number) {
-    setBasket((current) => {
-      if (qty <= 0) return current.filter((l) => l.product.id !== productId);
-      const existing = current.find((l) => l.product.id === productId);
-      if (existing) return current.map((l) => (l.product.id === productId ? { ...l, qty } : l));
-      const product = PRODUCTS.find((p) => p.id === productId);
-      return product ? [...current, { product, qty, source: "manual" as const }] : current;
-    });
-  }
-
-  async function copyList() {
-    try {
-      await navigator.clipboard.writeText(asText(basket));
-      setFlash("Shopping list copied — paste it into your supermarket app.");
-    } catch {
-      setFlash("Your browser blocked the clipboard. Use Download CSV instead.");
-    }
-  }
-
-  function downloadCsv() {
-    const blob = new Blob([asCsv(basket)], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "supermarket-basket.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    setFlash("CSV downloaded.");
+  // Changing who you are cooking for re-scales the week you already picked,
+  // rather than being a number that only applies to the next thing you add.
+  function setServingsEverywhere(next: number) {
+    setServings(next);
+    setPlan((current) => current.map((meal) => ({ ...meal, servings: next })));
   }
 
   return (
     <>
       <header className="masthead">
         <div className="masthead__in">
-          <div className="brand">
-            <span className="brand__mark">
-              Super<span>market</span>
-            </span>
-            <span className="brand__strap">Meals in, one basket out</span>
-          </div>
-          <div className="seg" role="group" aria-label="View">
-            <button type="button" aria-pressed={view === "plan"} onClick={() => setView("plan")}>
-              This week
-            </button>
-            <button type="button" aria-pressed={view === "aisles"} onClick={() => setView("aisles")}>
-              Sample catalogue
-            </button>
-          </div>
-          {view === 'aisles' && <div className="masthead__basket">
-            <span className="label">Basket</span>
-            <strong>
-              {sums.items} · {money(sums.total)}
-            </strong>
-          </div>}
+          <span className="brand__mark">
+            Super<span>market</span>
+          </span>
+          <span className="masthead__week">
+            {plan.length > 0 ? `${plan.length} meals · ${toBuy.length} to buy` : "Nothing planned yet"}
+          </span>
         </div>
       </header>
 
-      <main className="layout">
-        <div className="col">
-          {view === "plan" ? (
-            <>
-              <div className="strip">
-                <div>
-                  <h1>Five dinners, one shop</h1>
-                  <p>
-                    Pick the meals. Every ingredient is scaled to the servings you are cooking,
-                    added up across the week, matched to a real pack size and rounded up — so
-                    onions wanted by four recipes arrive as one bag, not four lines.
-                  </p>
-                </div>
-                <p className="strip__note">
-                  {plan.length} meals planned
-                  <br />
-                  {requirements.length} ingredients · {match.lines.length} products
-                </p>
-              </div>
+      <main className="sheet">
+        {tab === "meals" && (
+          <>
+            <WeekBar
+              plan={plan}
+              recipes={RECIPES}
+              servings={servings}
+              wanted={wanted}
+              onServings={setServingsEverywhere}
+              onWanted={setWanted}
+              onSurprise={() => setPlan(surpriseWeek(RECIPES, wanted, servings))}
+              onClear={() => setPlan([])}
+              onRemove={(key) => setPlan((current) => current.filter((m) => m.key !== key))}
+            />
+            <MealDeck
+              recipes={RECIPES}
+              plan={plan}
+              ingredients={INGREDIENTS}
+              onAdd={addMeal}
+              onRemove={removeRecipe}
+            />
+          </>
+        )}
 
-              <Planner
-                plan={plan}
-                recipes={RECIPES}
-                onServings={(key, servings) =>
-                  setPlan((current) => current.map((m) => (m.key === key ? { ...m, servings } : m)))
-                }
-                onRemove={(key) => setPlan((current) => current.filter((m) => m.key !== key))}
-                onClear={() => setPlan([])}
-              />
+        {tab === "list" && (
+          <HaveList
+            requirements={requirements}
+            pantry={pantry}
+            onToggle={(id) =>
+              setPantryIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
+            }
+          />
+        )}
 
-              <ShoppingList
-                match={match}
-                gaps={gaps}
-                outstandingCost={outstandingCost}
-                onTogglePantry={(id) =>
-                  setPantryIds((current) =>
-                    current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
-                  )
-                }
-                onPrefer={(ingredientId, productId) =>
-                  setPrefer((current) => ({ ...current, [ingredientId]: productId }))
-                }
-                onAddAll={() => addPlanToBasket()}
-                onAddOne={(productId) => addPlanToBasket(productId)}
-              />
-
-              <LivePanel key={JSON.stringify([requirements, pantryIds])} requirements={requirements.filter(r => !pantry.has(r.ingredient.id))} />
-
-              <RecipeLibrary recipes={RECIPES} plan={plan} onAdd={addMeal} />
-            </>
-          ) : (
-            <Aisles products={PRODUCTS} ingredients={INGREDIENTS} basket={basket} onQty={setQty} />
-          )}
-        </div>
-
-        {view === 'aisles' ? <Basket
-          lines={basket}
-          sums={sums}
-          slots={SLOTS}
-          slotId={slot.id}
-          onSlot={setSlotId}
-          onQty={setQty}
-          onEmpty={() => setBasket([])}
-          onCopy={copyList}
-          onCsv={downloadCsv}
-        /> : <aside className="pane"><section className="card"><div className="card__body"><h2>Your Tesco shop</h2><p>1. Choose meals and servings.</p><p>2. Exclude ingredients you already have.</p><p>3. Find and review live Tesco products.</p><p>4. Add to Tesco and check out there.</p><a href="#live-head">Review Tesco products ↓</a><p>Delivery and checkout stay on Tesco.</p></div></section></aside>}
+        {tab === "shop" && (
+          <LivePanel key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])} requirements={toBuy} />
+        )}
       </main>
 
-      <p className="live" role="status" aria-live="polite">
-        {flash}
-      </p>
+      <nav className="tabs" aria-label="Sections">
+        <Tab id="meals" now={tab} go={setTab} icon="🍽️" label="Meals" note={plan.length || undefined} />
+        <Tab id="list" now={tab} go={setTab} icon="📝" label="List" note={toBuy.length || undefined} />
+        <Tab id="shop" now={tab} go={setTab} icon="🛒" label="Tesco" />
+      </nav>
     </>
+  );
+}
+
+function Tab({
+  id,
+  now,
+  go,
+  icon,
+  label,
+  note,
+}: {
+  id: Tab;
+  now: Tab;
+  go: (tab: Tab) => void;
+  icon: string;
+  label: string;
+  note?: number;
+}) {
+  return (
+    <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
+      <span className="tab__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="tab__label">{label}</span>
+      {note != null && <span className="tab__note">{note}</span>}
+    </button>
   );
 }
