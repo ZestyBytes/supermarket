@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ridgeway Market</title>
+<meta name="description" content="Order the weekly shop from Ridgeway Market: browse the aisles, fill your basket, pick a delivery slot.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Public+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead__in">
+    <div class="brand">
+      <span class="brand__mark">Ridgeway<span>&nbsp;Market</span></span>
+      <span class="brand__strap">Bridge Street · open 7–22</span>
+    </div>
+    <div class="search">
+      <span class="label" aria-hidden="true">Find</span>
+      <label class="sr" for="q">Search the shelves</label>
+      <input id="q" type="search" placeholder="milk, tomatoes, laundry…" autocomplete="off">
+    </div>
+    <button class="basket-jump" type="button" id="jump">
+      Basket <b><span id="jumpCount">0</span> · <span id="jumpTotal">£0.00</span></b>
+    </button>
+  </div>
+</header>
+
+<div class="strip">
+  <div>
+    <h1>This week's shop</h1>
+    <p>Thirty-two lines across eight aisles, priced as they are on the shelf edge. Fill the basket, choose a slot, and the order is done.</p>
+  </div>
+  <p class="strip__note">Free delivery over £40<br>Offers end Sunday</p>
+</div>
+
+<main class="shop">
+  <nav class="rail" id="rail" aria-label="Aisles"></nav>
+
+  <section aria-label="Shelves">
+    <div class="grid-head" id="gridHead"></div>
+    <ul class="grid" id="grid"></ul>
+  </section>
+
+  <aside class="pane" id="pane" aria-label="Your basket">
+    <div class="card">
+      <div class="card__head"><h2>Your basket</h2><span class="label">Trolley</span></div>
+      <ul class="lines" id="lines"></ul>
+      <div class="card__body">
+        <div class="sums">
+          <div class="sum"><span>Goods</span><span id="sumGoods">£0.00</span></div>
+          <div class="sum sum--save" id="sumSavedRow" hidden><span>Offer savings</span><span id="sumSaved">£0.00</span></div>
+          <div class="sum"><span>Delivery</span><span id="sumFee">Free</span></div>
+          <div class="sum sum--total"><span>To pay</span><span id="sumTotal">£0.00</span></div>
+        </div>
+        <div class="progress">
+          <div class="progress__track"><div class="progress__fill" id="progFill"></div></div>
+          <p class="progress__note" id="progNote"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__head"><h2>Delivery slot</h2><span class="label">Next 3 days</span></div>
+      <div class="card__body">
+        <ul class="slots" id="slots"></ul>
+        <button class="checkout" type="button" id="checkout">Place order</button>
+      </div>
+    </div>
+
+    <div class="card" id="receiptCard" hidden>
+      <div class="card__head"><h2>Order placed</h2><span class="label">Receipt</span></div>
+      <div class="card__body"><pre class="receipt" id="receipt"></pre></div>
+    </div>
+
+    <p class="pane__foot" id="paneFoot"></p>
+  </aside>
+</main>
+
+<p class="sr" id="live" role="status" aria-live="polite"></p>
+
+<script src="assets/products.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
