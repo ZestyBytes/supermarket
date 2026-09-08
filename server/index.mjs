@@ -62,6 +62,18 @@ const server = createServer(async (req, res) => {
     send(res, status, { ok: false, error: { code, message } });
   }
 });
+// A port left held by an earlier run is the commonest way this fails, and a
+// raw EADDRINUSE stack says nothing about what to do next.
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`\nPort ${PORT} is already in use — an earlier Supermarket server is still running.`);
+    console.error("Stop it and try again:");
+    console.error(`  Windows      Stop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force`);
+    console.error(`  macOS/Linux  kill $(lsof -ti tcp:${PORT})`);
+    process.exit(1);
+  }
+  throw error;
+});
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Supermarket API: http://127.0.0.1:${PORT} (${MOCK ? "mock" : "Open Supermarkets / Tesco"})`);
   // Say it here rather than letting the first search fail with "signed out".
