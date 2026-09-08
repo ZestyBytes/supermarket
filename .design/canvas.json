@@ -1,0 +1,26 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 844, "title": "Meals" },
+    { "file": "List.dc.html", "x": 490, "y": 0, "w": 390, "h": 844, "title": "Shopping list" },
+    { "file": "Tesco.dc.html", "x": 980, "y": 0, "w": 390, "h": 844, "title": "Tesco" },
+    { "file": "Added.dc.html", "x": 1470, "y": 0, "w": 390, "h": 844, "title": "After adding" },
+    { "file": "AltWeekSlots.dc.html", "x": 0, "y": 1000, "w": 390, "h": 844, "title": "Alternative — week as days" }
+  ],
+  "annotations": [
+    {
+      "id": "flow-note",
+      "x": 0,
+      "y": -150,
+      "w": 700,
+      "text": "The main flow, left to right: pick dinners, tick off what you already have, match at Tesco, then see exactly what landed.\n\nThe week's progress is a bar and a count, so it reads at a glance."
+    },
+    {
+      "id": "alt-note",
+      "x": 490,
+      "y": 1000,
+      "w": 330,
+      "text": "Alternative direction for the Meals screen.\n\nInstead of a browse list, the week is five day slots you fill — better if dinners belong to particular nights, and it makes \"eating out Tuesday\" expressible.\n\nEverything else stays as designed."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

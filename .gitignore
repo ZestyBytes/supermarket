@@ -21,3 +21,8 @@ capture/
 !.env.example
 test-results/
 playwright-report/
+
+# The seeded design canvas is 2.5MB of editor payload rebuilt from the
+# .dc.html sources beside it; keep the sources, not the build.
+.design/*.html
+!.design/*.dc.html
