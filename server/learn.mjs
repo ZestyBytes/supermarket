@@ -301,3 +301,52 @@ function safeHost(url) {
     return "an unknown host";
   }
 }
+
+/**
+ * How long a bearer token has left.
+ *
+ * These are JWTs: the middle segment is base64url JSON carrying `exp`. Reading
+ * it locally turns "Unauthorized" — which arrives long after the mistake — into
+ * "this expired 20 minutes ago", before a request is even sent. Only the
+ * timestamps are read; the token is never logged.
+ */
+export function tokenLife(authorization, now = Date.now()) {
+  if (typeof authorization !== "string") return null;
+  const jwt = authorization.replace(/^Bearer\s+/i, "");
+  const segments = jwt.split(".");
+  if (segments.length !== 3) return null;
+
+  let claims;
+  try {
+    claims = JSON.parse(Buffer.from(segments[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (typeof claims?.exp !== "number") return null;
+
+  const expiresAt = new Date(claims.exp * 1000);
+  const secondsLeft = Math.round((expiresAt.getTime() - now) / 1000);
+  return {
+    expiresAt,
+    secondsLeft,
+    expired: secondsLeft <= 0,
+    lifetimeSeconds: typeof claims.iat === "number" ? claims.exp - claims.iat : undefined,
+  };
+}
+
+/**
+ * Which GraphQL operations a request carries.
+ *
+ * A retailer's page fires several: the product search, recommendations,
+ * suggestions. They all go to the same endpoint, so the only way to tell the
+ * captured one apart is by name.
+ */
+export function operationsIn(body) {
+  if (typeof body !== "string") return [];
+  return [...body.matchAll(/"operationName"\s*:\s*"([^"]+)"/g)].map((match) => match[1]);
+}
+
+/** Does this request look like the one that searches for products? */
+export function looksLikeSearch(operations) {
+  return operations.some((name) => /^search$/i.test(name) || /productsearch|searchproducts/i.test(name));
+}

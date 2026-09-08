@@ -45,7 +45,8 @@ console.log("  1. In your browser: DevTools → Network → Fetch/XHR");
 console.log(`  2. Do it once (so the request is fresh), then right-click it → Copy → Copy as cURL`);
 console.log("  3. Come straight back here and press Enter");
 console.log("");
-console.log("Speed matters: the retailer's token expires within minutes of being issued.");
+console.log("The token in a captured request lasts about an hour, so do the action now rather than");
+console.log("reusing something copied earlier.");
 
 await waitForEnter();
 
@@ -80,8 +81,9 @@ if (outcome.ok) {
   else if (kindArg === "basket") console.log("Next: add one cheap item by hand, then: npm run refresh -- add <id> 1");
   else console.log("All three captured. Start it up: npm run server   (and npm run dev in a second terminal)");
 } else if (outcome.reason === "expired") {
-  console.error("The token was already expired when we used it.");
-  console.error("Reload the Tesco page, redo the action, and run this again straight away.");
+  console.error("Reload the page, redo the action, and run this again.");
+  process.exit(1);
+} else if (outcome.reason === "wrong-operation") {
   process.exit(1);
 } else {
   console.error("The endpoint was recorded, but the response could not be read automatically.");

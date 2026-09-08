@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { inferFields, inferList, inferTotal, parseCurl, templatize } from "./learn.mjs";
+import { inferFields, inferList, inferTotal, looksLikeSearch, operationsIn, parseCurl, templatize, tokenLife } from "./learn.mjs";
 import { loadSession, updateSession } from "./session.mjs";
 
 /**
@@ -21,7 +21,32 @@ export async function learnEndpoint({
 }) {
   const request = parseCurl(text, { keepSecrets: true });
 
+  const operations = operationsIn(request.body);
+  if (operations.length > 0) log.log(`Operation: ${[...new Set(operations)].join(", ")}`);
+
+  // Catch the wrong request before spending a token on it: every operation on
+  // the page goes to the same endpoint, so the name is the only way to tell.
+  if (kind === "search" && operations.length > 0 && !looksLikeSearch(operations)) {
+    log.warn(`\nThis is the "${operations[0]}" request, not the product search.`);
+    log.warn("  In DevTools, use the search icon and type a product name you can see on the page.");
+    log.warn("  The request you want is the one whose RESPONSE contains the product titles.");
+    log.warn("  Nothing was changed.\n");
+    return { ok: false, reason: "wrong-operation", operations };
+  }
+
   // A bearer token is a credential: it joins the session, never the config.
+  if (request.secrets?.authorization) {
+    const life = tokenLife(request.secrets.authorization);
+    if (life?.expired) {
+      log.warn(`\nThat token expired ${Math.abs(Math.round(life.secondsLeft / 60))} minutes ago.`);
+      log.warn("  Reload the page, redo the action, and copy the request again — that issues a new one.");
+      log.warn("  Nothing was changed.\n");
+      return { ok: false, reason: "expired", operations };
+    }
+    if (life) {
+      log.log(`Token is good for another ${Math.round(life.secondsLeft / 60)} minutes.`);
+    }
+  }
   if (request.secrets?.authorization) {
     try {
       updateSession({ authorization: request.secrets.authorization });

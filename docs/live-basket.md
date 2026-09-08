@@ -48,7 +48,8 @@ No retailer's internal API is hard-coded in this repo — guessing endpoints pro
 fails in ways that look like bugs somewhere else. Instead, hand it the requests the retailer's own
 site makes, and it works the rest out.
 
-**These tokens expire within minutes**, so capture and learn in one step:
+**A captured token lasts about an hour**, and the tool reads its expiry before using it, so capture
+and learn in one step:
 
 ```
 npm run refresh -- search chicken
@@ -70,8 +71,10 @@ Each one stores any credentials it finds in the session file, records the endpoi
 it once to learn where the products, prices and total sit in the response. The add request is never
 replayed: configuring the app must not put anything in your basket.
 
-If it reports the token was already expired, reload the page, redo the action, and run it again
-straight away.
+It checks two things before spending the token: that the token has not already expired (it reads
+the expiry out of the token locally, so it can say "that expired 20 minutes ago" instead of the
+retailer saying "Unauthorized" later), and that you copied the right request — a retailer page
+fires several calls to the same endpoint, and only one of them is the product search.
 
 There is also a file-based route, `node scripts/learn-endpoint.mjs --kind search --term chicken
 --file search.txt`, paired with `npm run capture -- search.txt`. It works, but the gap between

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { classifyClipboard, inferFields, inferList, inferTotal, parseCurl, templatize } from "../learn.mjs";
+import {
+  classifyClipboard,
+  inferFields,
+  inferList,
+  inferTotal,
+  looksLikeSearch,
+  operationsIn,
+  parseCurl,
+  templatize,
+  tokenLife,
+} from "../learn.mjs";
 
 const BASH_CURL = `curl 'https://www.shop.example/api/search?query=chicken&count=20' \\
   -H 'accept: application/json' \\
@@ -198,5 +208,49 @@ describe("classifyClipboard", () => {
 
   it("quotes back anything else it cannot place", () => {
     expect(classifyClipboard("hello there").why).toContain("hello there");
+  });
+});
+
+describe("tokenLife", () => {
+  function jwt(claims) {
+    const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    return `Bearer ${encode({ alg: "RS256" })}.${encode(claims)}.signature`;
+  }
+
+  it("reads how long a token has left without sending it anywhere", () => {
+    const now = 1_788_867_702_000;
+    const life = tokenLife(jwt({ iat: 1_788_867_702, exp: 1_788_871_302 }), now);
+    expect(life.secondsLeft).toBe(3600);
+    expect(life.lifetimeSeconds).toBe(3600);
+    expect(life.expired).toBe(false);
+  });
+
+  it("spots one that is already dead", () => {
+    // The failure that kept arriving as "Unauthorized" an hour after the fact.
+    const life = tokenLife(jwt({ iat: 1_788_867_702, exp: 1_788_871_302 }), 1_788_875_000_000);
+    expect(life.expired).toBe(true);
+    expect(life.secondsLeft).toBeLessThan(0);
+  });
+
+  it("returns nothing for something that is not a JWT", () => {
+    expect(tokenLife("Bearer opaque-token")).toBeNull();
+    expect(tokenLife(undefined)).toBeNull();
+  });
+});
+
+describe("operationsIn / looksLikeSearch", () => {
+  it("names the operation a captured request carries", () => {
+    expect(operationsIn('[{"operationName":"GetRecommendations","variables":{}}]')).toEqual(["GetRecommendations"]);
+  });
+
+  it("tells the product search apart from the rest of the page's traffic", () => {
+    expect(looksLikeSearch(["Search"])).toBe(true);
+    expect(looksLikeSearch(["GetRecommendations"])).toBe(false);
+    expect(looksLikeSearch(["Suggestions"])).toBe(false);
+  });
+
+  it("finds every operation in a batched request", () => {
+    const body = '[{"operationName":"Search"},{"operationName":"GetTaxonomy"}]';
+    expect(operationsIn(body)).toEqual(["Search", "GetTaxonomy"]);
   });
 });
