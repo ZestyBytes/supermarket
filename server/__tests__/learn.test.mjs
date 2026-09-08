@@ -12,7 +12,40 @@ const CMD_CURL = `curl "https://www.shop.example/api/basket/items" ^
   -H "Cookie: sessionId=secret-value" ^
   --data-raw "{\\"productId\\":\\"12345\\",\\"quantity\\":2}"`;
 
+/** Exactly the shape Chrome on Windows produces: carets before every special character. */
+const WINDOWS_CURL = `curl --url ^"https://xapi.tesco.com/^" ^
+  -H ^"content-type: application/json^" ^
+  -H ^"x-apikey: PUBLICWEBKEY^" ^
+  -H ^"Cookie: sessionId=secret-value^" ^
+  --data-raw ^"^[^{^\\^"operationName^\\^":^\\^"Search^\\^",^\\^"variables^\\^":^{^\\^"query^\\^":^\\^"chicken^\\^"^}^}^]^"`;
+
 describe("parseCurl", () => {
+  it("reads the caret-escaped flavour Chrome produces on Windows", () => {
+    const request = parseCurl(WINDOWS_CURL);
+    expect(request.url).toBe("https://xapi.tesco.com/");
+    expect(request.method).toBe("POST");
+    expect(request.headers["x-apikey"]).toBe("PUBLICWEBKEY");
+    expect(JSON.parse(request.body)).toEqual([
+      { operationName: "Search", variables: { query: "chicken" } },
+    ]);
+  });
+
+  it("keeps the cookie out of a Windows capture too", () => {
+    const request = parseCurl(WINDOWS_CURL);
+    expect(JSON.stringify(request)).not.toContain("secret-value");
+    expect(request.droppedHeaders).toContain("cookie");
+  });
+
+  it("templates the search term inside a GraphQL body", () => {
+    const spec = templatize(parseCurl(WINDOWS_CURL), { query: "chicken" });
+    expect(spec.origin).toBe("https://xapi.tesco.com");
+    expect(spec.path).toBe("/");
+    // The tokenizer hands back the unescaped body, so the placeholder sits in
+    // plain JSON ready to be filled per request.
+    expect(spec.body).toBe('[{"operationName":"Search","variables":{"query":"{query}"}}]');
+  });
+
+
   it("reads the bash flavour DevTools produces", () => {
     const request = parseCurl(BASH_CURL);
     expect(request.method).toBe("GET");

@@ -12,12 +12,7 @@ const SECRET_HEADERS = new Set(["cookie", "authorization", "x-csrf-token", "prox
 
 /** Parse a cURL command, in either the bash (single-quote) or cmd (double-quote) flavour. */
 export function parseCurl(text) {
-  const tokens = tokenize(
-    String(text)
-      .replace(/\\\r?\n/g, " ") // bash line continuations
-      .replace(/\^\r?\n/g, " ") // cmd line continuations
-      .trim(),
-  );
+  const tokens = tokenize(uncaret(String(text)).trim());
 
   if (tokens[0] !== "curl") throw new Error("That does not start with `curl` — copy the request as cURL.");
 
@@ -52,6 +47,20 @@ export function parseCurl(text) {
   if (!request.url) throw new Error("No URL found in that cURL command.");
   request.method ??= request.body ? "POST" : "GET";
   return request;
+}
+
+/**
+ * Undo Windows cmd escaping.
+ *
+ * "Copy as cURL (cmd)" puts a caret in front of every character cmd treats as
+ * special — including the quotes themselves, so a URL arrives as
+ * ^"https://xapi.tesco.com/^". Carets are stripped only when the text is
+ * actually cmd-flavoured, so a bash copy containing a literal ^ is left alone.
+ */
+function uncaret(text) {
+  const withoutContinuations = text.replace(/\\\r?\n/g, " ").replace(/\^\r?\n/g, " ");
+  if (!withoutContinuations.includes('^"')) return withoutContinuations;
+  return withoutContinuations.replace(/\^([\s\S])/g, "$1");
 }
 
 function tokenize(input) {
