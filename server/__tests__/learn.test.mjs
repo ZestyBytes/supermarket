@@ -315,3 +315,28 @@ describe("pickRequest by the term you typed", () => {
     expect(pickRequest([suggestions, search], "search", undefined, { term: "chicken" }).command).toBe(search);
   });
 });
+
+describe("pickRequest is not fooled by a term mentioned elsewhere", () => {
+  // A real Tesco results page fires this: the recommendations call lists the
+  // search term under exclusionInfo, so matching the word anywhere picks it.
+  const recommendations =
+    'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"GetRecommendations\\",\\"variables\\":{\\"exclusionInfo\\":{\\"search\\":\\"beef\\"}}}]"';
+  const search =
+    'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"Search\\",\\"variables\\":{\\"query\\":\\"beef\\"}}]"';
+
+  it("takes the request that searches for the term, not one that mentions it", () => {
+    const picked = pickRequest([recommendations, search], "search", undefined, { term: "beef" });
+    expect(picked.command).toBe(search);
+  });
+
+  it("reports the search as absent when only a mention is present", () => {
+    expect(pickRequest([recommendations], "search", undefined, { term: "beef" }).ok).toBe(false);
+  });
+
+  it("treats a term with regex characters literally", () => {
+    // "a.b" must not match "axb": the term goes into a pattern, so it is escaped.
+    const odd = 'curl --url "https://x/" --data-raw "[{\\"operationName\\":\\"Lookup\\",\\"variables\\":{\\"query\\":\\"a.b\\"}}]"';
+    expect(pickRequest([odd], "search", undefined, { term: "a.b" }).ok).toBe(true);
+    expect(pickRequest([odd], "search", undefined, { term: "axb" }).ok).toBe(false);
+  });
+});

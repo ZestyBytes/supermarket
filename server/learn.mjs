@@ -395,10 +395,12 @@ export function pickRequest(commands, kind, preferred, { term } = {}) {
     return { ok: true, command: usable[0].command, operation: null };
   }
 
-  // The search request is the one carrying the word you typed. That holds
-  // whatever the retailer calls its operation, so it is tried first.
+  // The search request is the one carrying the word you typed *as its query*.
+  // Matching the word anywhere is too loose: a recommendations call lists the
+  // search term among the products it should exclude, and would win.
   if (term && !preferred) {
-    const carrying = usable.filter((entry) => entry.request.body?.toLowerCase().includes(`"${term.toLowerCase()}"`));
+    const asQuery = new RegExp(`"(?:query|searchTerm|term|q)"\\s*:\\s*"${escapeRegex(term)}"`, "i");
+    const carrying = usable.filter((entry) => asQuery.test(entry.request.body ?? ""));
     if (carrying.length === 1) {
       return { ok: true, command: carrying[0].command, operation: carrying[0].operations[0] ?? null };
     }
@@ -428,6 +430,10 @@ export function pickRequest(commands, kind, preferred, { term } = {}) {
   }
 
   return { ok: false, reason: "not-found", seen: names(usable) };
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function names(entries) {
