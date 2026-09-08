@@ -19,3 +19,14 @@ Session data lives under ~/.supermarket, outside the repository. It is sensitive
 After an uncertain basket update, read Tesco before doing anything else. Writes are not automatically repeated. The API records each attempt and verifies actual quantities rather than assuming success from the submitted list. Existing basket contents are preserved. Retailer totals can include charges and pre-existing items and can differ from estimates.
 
 See open-supermarkets.md for integration/patch details and the current live verification status.
+
+## Staying connected
+
+Tesco's token lasts about an hour, so a session connected once is stale by the evening. Tick
+**Stay connected** in the extension and it refreshes itself every half hour: it nudges a Tesco page
+in the background, catches the token that page asks for, and closes up again. Nothing to click, and
+the app is simply always ready.
+
+It is off until you turn it on, and turning it off stops all of it. Every refresh is still verified
+against Tesco before it replaces the stored session, and the helper still cannot add products or
+check out.

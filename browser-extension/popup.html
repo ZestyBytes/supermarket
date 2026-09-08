@@ -1,5 +1,26 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><title>Connect Tesco</title>
-<style>body{font:15px system-ui;width:310px;padding:18px;color:#17382c}button{padding:12px;background:#17382c;color:white;border:0;border-radius:6px;width:100%}p{line-height:1.5}</style>
-<h2>Connect Tesco</h2><p>Run <b>npm run connect</b> first. Then connect and refresh your Tesco basket in this Chrome window.</p>
-<button id="connect">Connect for five minutes</button><p id="status" role="status"></p>
-<p>Your session goes only to Supermarket on this computer. This helper cannot add products or check out.</p><script src="popup.js"></script></html>
+<style>
+  body { font: 15px system-ui; width: 320px; padding: 18px; color: #1a1a18; }
+  h2 { margin: 0 0 .6rem; font-size: 1.1rem; }
+  p { line-height: 1.5; margin: .6rem 0; }
+  button { padding: 12px; background: #2E4A82; color: #fff; border: 0; border-radius: 6px; width: 100%; font: inherit; font-weight: 600; cursor: pointer; }
+  .keep { display: flex; gap: .6rem; align-items: flex-start; padding: .7rem; background: #eef1f7; border-radius: 6px; margin: .8rem 0; }
+  .keep input { margin-top: .2rem; width: 18px; height: 18px; }
+  .keep label { line-height: 1.4; }
+  .keep b { display: block; }
+  .small { font-size: 13px; color: #67655E; }
+  #status { min-height: 1.2em; font-size: 13px; }
+</style>
+<h2>Connect Tesco</h2>
+
+<div class="keep">
+  <input type="checkbox" id="keep">
+  <label for="keep"><b>Stay connected</b>
+    <span class="small">Refreshes itself every half hour in the background, so Supermarket is always ready. Nothing to click again.</span>
+  </label>
+</div>
+
+<button id="connect">Connect once now</button>
+<p id="status" role="status"></p>
+<p class="small">Your Tesco session goes only to Supermarket on this computer. This helper cannot add products or check out.</p>
+<script src="popup.js"></script></html>

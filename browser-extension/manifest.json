@@ -2,11 +2,13 @@
   "manifest_version": 3,
   "name": "Supermarket Tesco Connect",
   "version": "0.1.0",
-  "description": "Connect Tesco to Supermarket on this computer when you click Connect.",
+  "description": "Keeps Supermarket connected to Tesco on this computer.",
   "permissions": [
     "webRequest",
     "cookies",
-    "storage"
+    "storage",
+    "alarms",
+    "tabs"
   ],
   "host_permissions": [
     "https://www.tesco.com/*",
