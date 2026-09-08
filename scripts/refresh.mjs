@@ -22,7 +22,7 @@ const [kindArg, first, second, third] = process.argv.slice(2).filter((arg) => !a
 
 const KINDS = {
   search: { kind: "search", what: "a search for a product", needs: "the term you searched for" },
-  basket: { kind: "basket-read", what: "your basket contents" },
+  basket: { kind: "basket-read", what: "your basket contents", needs: "optionally, the operation name" },
   add: { kind: "basket-add", what: "adding one item to your basket", needs: "the product id it sent" },
 };
 
@@ -71,7 +71,10 @@ if (verdict.kind !== "curl") {
 const commands = splitCurls(clipboard);
 console.log(`\nGot ${commands.length} request${commands.length === 1 ? "" : "s"} from the clipboard.`);
 
-const picked = pickRequest(commands, chosen.kind, third, { term: kindArg === "search" ? first : undefined });
+// Where the operation name sits depends on what the other arguments are used
+// for: search takes a term first, add takes a product id and quantity.
+const preferred = kindArg === "basket" ? first : third;
+const picked = pickRequest(commands, chosen.kind, preferred, { term: kindArg === "search" ? first : undefined });
 if (!picked.ok) {
   reportPickFailure(picked);
   process.exit(1);
@@ -124,6 +127,10 @@ function reportPickFailure(picked) {
     console.error("  Clear the Network list, search again with it open, then copy all as cURL.");
   }
   console.error(`  The requests copied were: ${picked.seen.slice(0, 20).join(", ") || "(none named)"}`);
+  if (picked.seen.length > 0) {
+    const example = kindArg === "basket" ? picked.seen[0] : `${first ?? ""} ${picked.seen[0]}`;
+    console.error(`  Or name the one you want: npm run refresh -- ${kindArg} ${example}`.replace(/\s+/g, " "));
+  }
 }
 
 function waitForEnter() {
