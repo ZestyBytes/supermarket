@@ -35,24 +35,32 @@ export async function learnEndpoint({
   }
 
   // A bearer token is a credential: it joins the session, never the config.
+  // An old capture is still perfectly good for its endpoint and query — only
+  // its token has gone stale — so a fresher token already in the session is
+  // used rather than refusing, and never overwritten with the stale one.
   if (request.secrets?.authorization) {
-    const life = tokenLife(request.secrets.authorization);
-    if (life?.expired) {
-      log.warn(`\nThat token expired ${Math.abs(Math.round(life.secondsLeft / 60))} minutes ago.`);
-      log.warn("  Reload the page, redo the action, and copy the request again — that issues a new one.");
-      log.warn("  Nothing was changed.\n");
-      return { ok: false, reason: "expired", operations };
-    }
-    if (life) {
-      log.log(`Token is good for another ${Math.round(life.secondsLeft / 60)} minutes.`);
-    }
-  }
-  if (request.secrets?.authorization) {
-    try {
-      updateSession({ authorization: request.secrets.authorization });
-      log.log("Stored a fresh authorization token with your session (not in config).");
-    } catch (error) {
-      log.warn(`Could not store the authorization token: ${error.message}`);
+    const captured = tokenLife(request.secrets.authorization);
+    const held = tokenLife(loadSession()?.authorization);
+
+    if (captured?.expired) {
+      const minutes = Math.abs(Math.round(captured.secondsLeft / 60));
+      if (held && !held.expired) {
+        log.log(`The token in this capture expired ${minutes} minutes ago.`);
+        log.log(`Using the one already in your session instead — good for another ${Math.round(held.secondsLeft / 60)} minutes.`);
+      } else {
+        log.warn(`\nThat token expired ${minutes} minutes ago, and your session has no fresher one.`);
+        log.warn("  Reload the page, redo the action, and copy the request again.");
+        log.warn("  Nothing was changed.\n");
+        return { ok: false, reason: "expired", operations };
+      }
+    } else {
+      if (captured) log.log(`Token is good for another ${Math.round(captured.secondsLeft / 60)} minutes.`);
+      try {
+        updateSession({ authorization: request.secrets.authorization });
+        log.log("Stored a fresh authorization token with your session (not in config).");
+      } catch (error) {
+        log.warn(`Could not store the authorization token: ${error.message}`);
+      }
     }
   }
   if (request.secrets?.cookie) {
