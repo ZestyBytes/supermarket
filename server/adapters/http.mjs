@@ -34,7 +34,11 @@ export function createHttpAdapter(config, getCookie) {
 
     if (spec.body) {
       init.headers["content-type"] = spec.contentType ?? "application/json";
-      init.body = typeof spec.body === "string" ? fill(spec.body, values) : JSON.stringify(render(spec.body, values));
+      const asJson = (spec.contentType ?? "application/json").includes("json");
+      init.body =
+        typeof spec.body === "string"
+          ? fill(spec.body, values, asJson ? "json" : "raw")
+          : JSON.stringify(render(spec.body, values));
     }
 
     let response;
@@ -125,7 +129,9 @@ export function createHttpAdapter(config, getCookie) {
 }
 
 function render(body, values) {
-  if (typeof body === "string") return fill(body, values);
+  // Values are placed into a structure that is stringified afterwards, so they
+  // are inserted raw and JSON.stringify does the escaping.
+  if (typeof body === "string") return fill(body, values, "raw");
   if (Array.isArray(body)) return body.map((entry) => render(entry, values));
   if (body && typeof body === "object") {
     return Object.fromEntries(Object.entries(body).map(([key, value]) => [key, render(value, values)]));

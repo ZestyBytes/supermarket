@@ -11,12 +11,23 @@ export function pick(value, path) {
 
   for (const step of path.split(".")) {
     if (current == null) return undefined;
+    if (step === "") continue;
+
+    // A batched GraphQL response is an array, so paths can start with an
+    // index: "[0].data.search.results[]".
+    const indexed = /^(.*)\[(\d+)\]$/.exec(step);
+    if (indexed) {
+      const [, key, index] = indexed;
+      const list = key ? current[key] : current;
+      if (!Array.isArray(list)) return undefined;
+      current = list[Number(index)];
+      continue;
+    }
 
     if (step.endsWith("[]")) {
       const key = step.slice(0, -2);
       const list = key ? current[key] : current;
-      if (!Array.isArray(list)) return undefined;
-      return list;
+      return Array.isArray(list) ? list : undefined;
     }
     current = current[step];
   }
@@ -37,10 +48,21 @@ export function pickAll(value, path, fields) {
   });
 }
 
-/** Fill {placeholders} in a URL or body template, encoding for a query string. */
-export function fill(template, values) {
+/**
+ * Fill {placeholders} in a URL or a request body.
+ *
+ * How a value must be escaped depends on where it lands. In a query string it
+ * is percent-encoded; inside a JSON body it needs JSON string escaping, and
+ * percent-encoding there would search the retailer for "chicken%20breast"
+ * rather than "chicken breast".
+ */
+export function fill(template, values, where = "url") {
   if (typeof template !== "string") return template;
-  return template.replace(/\{(\w+)\}/g, (_, key) =>
-    key in values ? encodeURIComponent(String(values[key])) : `{${key}}`,
-  );
+  return template.replace(/\{(\w+)\}/g, (_, key) => {
+    if (!(key in values)) return `{${key}}`;
+    const value = String(values[key]);
+    if (where === "json") return JSON.stringify(value).slice(1, -1);
+    if (where === "raw") return value;
+    return encodeURIComponent(value);
+  });
 }
