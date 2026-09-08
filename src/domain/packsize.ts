@@ -30,6 +30,7 @@ const SCALE: Record<string, { unit: CanonicalUnit; factor: number }> = {
  */
 export function parsePackSize(title: string): PackSize | null {
   if (!title) return null;
+  if (/\beach\s*$/i.test(title)) return { qty: 1, unit: 'each', matched: 'Each' };
 
   // "4 x 400g" is 1600g, not 4 packs and not 400g.
   const multi = MULTIPACK.exec(title);

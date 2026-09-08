@@ -16,6 +16,25 @@ const CHICKEN: RetailerProduct[] = [
 ];
 
 describe("chooseLiveProducts", () => {
+  it('keeps failed searches distinct from no products', () => {
+    const result = chooseLiveProducts(new Map(), [need(chicken, 600)], new Set(['chicken-breast']));
+    expect(result.review[0].reason).toBe('search-failed');
+  });
+  it('does not substitute ready cooked rice for dry rice', () => {
+    const rice: Ingredient = { id: 'rice', name: 'Basmati rice', unit: 'g', aisle: 'cupboard' };
+    const result = chooseLiveProducts(new Map([['rice', [{id:'ready',title:'Microwave Basmati Rice 250g',price:0.5},{id:'dry',title:'Basmati Rice 1Kg',price:1.79}]]]), [need(rice,300)]);
+    expect(result.choices[0].product.id).toBe('dry');
+  });
+  it('counts peppers sold Each without inventing a weight conversion', () => {
+    const pepper: Ingredient = {id:'pepper',name:'Peppers',unit:'each',aisle:'produce'};
+    const result=chooseLiveProducts(new Map([['pepper',[{id:'p',title:'Tesco Red Peppers Each',price:0.7}]]]),[need(pepper,3)]);
+    expect(result.choices[0].packs).toBe(3);
+  });
+  it('rejects ginger yoghurt and selects fresh ginger with a known weight', () => {
+    const ginger: Ingredient = {id:'ginger',name:'Root ginger',unit:'g',aisle:'produce'};
+    const result=chooseLiveProducts(new Map([['ginger',[{id:'y',title:'Ginger Yogurt 150g',price:0.5},{id:'g',title:'Tesco Ginger 100g',price:1.25}]]]),[need(ginger,20)]);
+    expect(result.choices[0].product.id).toBe('g');
+  });
   it("picks the cheapest way to cover the need in whole packs", () => {
     // 600g: one 650g pack at £4.90 beats two 320g packs at £4.88? No — £4.88 is
     // cheaper, and two packs is what a shopper would actually buy.

@@ -1,136 +1,21 @@
-# Connecting a real supermarket basket
+# Connect a real Tesco basket
 
-The app can push a week's shopping into a real online basket using a session cookie you copy from
-your own signed-in browser tab. This document covers how that works, how to set it up, and what to
-know before you do.
+Run commands from C:/Users/Jamie Bassett/supermarket.
 
-## Read this first
-
-The cookie is a credential. Anyone holding it is signed in as you: order history, saved addresses,
-saved cards, the lot. So:
-
-- **It never leaves your machine.** It is written to `~/.supermarket/tesco-session.json`
-  (`C:\Users\<you>\.supermarket\tesco-session.json` on Windows) and read only by the local server
-  this repo starts. The browser page never receives it, and it is stripped out of error messages
-  and logs before they are printed.
-- **Never commit it, never paste it into a hosted app, never put it in an environment variable in
-  CI.** `retailer.config.json` is gitignored and holds endpoints only — never the cookie.
-- **It expires.** Signing out in the browser, or the retailer rotating your session, kills it. The
-  app reports that as "Signed out" rather than as an empty catalogue, because those look identical
-  from the outside and only one of them is a bug.
-- **Automated access is very likely against the retailer's terms of use.** This drives your own
-  account, on your own machine, at a human pace, and never checks out or pays — but the retailer
-  may still rate-limit, challenge or block the session. That is your call to make, and worth
-  knowing before you rely on it for the weekly shop.
-
-## Setup
-
-### 1. Import the session
-
-Three ways, whichever suits:
-
-```
-npm run tesco:import                                    paste at a hidden prompt
-npm run tesco:import -- "C:\Users\you\.tesco\session.json"    read a file another tool wrote
-Get-Clipboard | npm run tesco:import                    pipe it straight from the clipboard
+```powershell
+npm install
+npm run connect
+npm start
 ```
 
-Note the plain path in the second one rather than a `--flag`. **npm parses unknown `--flags` as its
-own config and they never reach the script**, even after `--`; anything in this project that takes
-flags is run with `node` directly for that reason.
+One-time setup in your usual Chrome: open chrome://extensions, enable Developer mode, choose Load unpacked, and select C:/Users/Jamie Bassett/supermarket/browser-extension. Open Supermarket Tesco Connect from Chrome's extensions menu, click Connect, then refresh your Tesco basket. Sign in only on Tesco if needed. The command saves the session only after a real basket read succeeds and prints CONNECTED. No passwords or headers need copying. No basket change is made by connecting.
 
-You should see **"Session imported locally."** and a cookie count. If an older tool's session file
-exists, the prompt offers to read it rather than asking you to paste again.
+npm start launches both the UI at http://127.0.0.1:5173 and the local API. Use Find live products, review matches and add selected products. Open Tesco to check out yourself. The app never orders or pays.
 
-### 2. Teach it the retailer's endpoints
+The old npm run refresh -- basket command now opens the same connection helper. Stop using cURL capture and endpoint learning; retailer.config.json is not loaded anymore. There is no need to git pull between authentication steps.
 
-No retailer's internal API is hard-coded in this repo — guessing endpoints produces a client that
-fails in ways that look like bugs somewhere else. Instead, hand it the requests the retailer's own
-site makes, and it works the rest out.
+Session data lives under ~/.supermarket, outside the repository. It is sensitive. Never share it, paste it into chat or commit it. When authentication expires, run npm run connect, click Connect in the installed extension, and refresh Tesco. Silent managed-browser refresh is disabled because Tesco blocked that browser.
 
-**A captured token lasts about an hour**, and the tool reads its expiry before using it, so capture
-and learn in one step:
+After an uncertain basket update, read Tesco before doing anything else. Writes are not automatically repeated. The API records each attempt and verifies actual quantities rather than assuming success from the submitted list. Existing basket contents are preserved. Retailer totals can include charges and pre-existing items and can differ from estimates.
 
-```
-npm run refresh -- search chicken
-```
-
-It waits. Go to your signed-in tab, DevTools → Network → **Fetch/XHR**, search for `chicken`, then
-right-click anywhere in the request list → **Copy** → **Copy all as cURL**, come back, press Enter.
-
-Copy all of them. A retailer page fires dozens of calls to the same endpoint — analytics,
-recommendations, taxonomy — and picking the product search out of that list is the tool's job: it
-reads the GraphQL operation name from each and takes the right one. If two could be the one, it
-names them and you re-run with the name appended.
-
-Then the same for the other two:
-
-```
-npm run refresh -- basket                 open your basket, copy that request
-npm run refresh -- add 254656732 1        add one cheap item by hand, copy that request
-```
-
-Each one stores any credentials it finds in the session file, records the endpoint in
-`retailer.config.json` (endpoints only, never credentials), and — for search and basket — replays
-it once to learn where the products, prices and total sit in the response. The add request is never
-replayed: configuring the app must not put anything in your basket.
-
-It checks two things before spending the token: that the token has not already expired (it reads
-the expiry out of the token locally, so it can say "that expired 20 minutes ago" instead of the
-retailer saying "Unauthorized" later), and that you copied the right request — a retailer page
-fires several calls to the same endpoint, and only one of them is the product search.
-
-There is also a file-based route, `node scripts/learn-endpoint.mjs --kind search --term chicken
---file search.txt`, paired with `npm run capture -- search.txt`. It works, but the gap between
-capturing and learning is usually enough for the token to die.
-
-### 3. Run both halves
-
-Two terminals, because both keep running:
-
-```
-npm run server        # terminal 1 — holds the session, talks to the retailer
-npm run dev           # terminal 2 — the app, on http://localhost:5173
-```
-
-To try the whole flow without touching a real account, run the server against the built-in mock
-shop instead: `npm run server:mock`.
-
-## Using it
-
-On **This week**, the *Your real basket* panel does three things, in order:
-
-1. **Find live products** — searches the retailer once per ingredient, one request at a time.
-2. **Review** — each result's pack size is read out of its title (`… 650G`, `4 x 400G`, `3 Pack`).
-   The cheapest whole-pack cover wins. Anything whose size cannot be read, or that is sold by a
-   different measure than the recipe asks for, is listed for you to handle rather than guessed at.
-3. **Add to basket** — adds each line, then **reads the basket back** and shows what the retailer
-   says it now holds. What was sent is not evidence; what comes back is.
-
-Two totals appear, deliberately kept apart:
-
-- **Our estimate** — the listed prices of what we chose.
-- **The retailer's total** — theirs, and authoritative. It will differ: it includes delivery,
-  offers, substitutions and anything already in your basket before we started.
-
-Re-sending an unchanged list asks for confirmation first, so a repeated click cannot quietly buy
-the week twice.
-
-## Why a local server at all
-
-The page cannot call the retailer itself. The cookie is scoped to the retailer's domain, the
-browser's cross-origin rules block the request, and a page holding a session cookie in JavaScript
-is a session one bad script away from being stolen. Keeping it in a local process means the only
-thing crossing the wire is a request from your own machine to the retailer, exactly as your browser
-would make it.
-
-## When it stops working
-
-| What you see | What it means |
-| --- | --- |
-| **Signed out** | The retailer rejected the session. Sign in again in the browser and re-run `npm run tesco:import`. |
-| **No session** | Nothing imported yet on this machine. |
-| **Local server not running** | Start `npm run server` in its own terminal. |
-| **Retailer not configured** | `retailer.config.json` is missing or incomplete. |
-| **Too fast** | Rate limited. The server already serialises and spaces requests, and retries once. |
-| Many "nothing came back from search" | Either the search endpoint config is wrong, or the session is dead — check the panel's session line first. |
+See open-supermarkets.md for integration/patch details and the current live verification status.

@@ -275,3 +275,5 @@ code { font-family: var(--mono); font-size: .9em; }
 
 .retailer__acts { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .retailer__note { font-size: .72rem; color: var(--muted); }
+
+.retailer__need select { display: block; width: 100%; max-width: 100%; margin-top: .4rem; padding: .5rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }

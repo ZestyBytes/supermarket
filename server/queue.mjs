@@ -42,6 +42,7 @@ export function createQueue({ minIntervalMs = 350, retries = 1, backoffMs = 1200
 
 /** A rate limit or a network blip is worth one more go; a rejected session is not. */
 export function isRetryable(error) {
+  if (['SESSION_EXPIRED', 'SESSION_MISSING', 'BAD_REQUEST', 'BASKET_UNCERTAIN'].includes(error?.code)) return false;
   const status = error?.status;
   if (status === 401 || status === 403) return false;
   if (status === 429) return true;

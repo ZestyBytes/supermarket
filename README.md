@@ -15,17 +15,18 @@ Needs Node 20 or newer (`node --version` to check). Run each line on its own:
 
 ```
 npm install
-npm run dev
+npm run connect
+npm start
 ```
 
-Then open **http://localhost:5173**.
+Connect uses the local Chrome helper in your usual Chrome profile. Follow [the one-time setup](docs/live-basket.md); no DevTools or cookie copying is required. Then open **http://127.0.0.1:5173**. `npm start` runs both the API and UI.
 
 > **Windows PowerShell:** don't chain these with `&&`. Windows PowerShell 5.1 — the blue one that
 > ships with Windows — treats `&&` as a syntax error and runs nothing, so the dev server never
 > starts and the browser shows `ERR_CONNECTION_REFUSED`. One command per line works everywhere;
 > `;` chains them in any PowerShell, and `&&` works in PowerShell 7+ and in cmd, bash and zsh.
 
-Other scripts: `npm test` (80 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
+Other scripts: `npm test`, `npm run typecheck`, `npm run build`. `npm run dev` runs only the UI; `npm start` is the normal local entry point.
 
 ### If the page will not load
 
@@ -33,7 +34,7 @@ Other scripts: `npm test` (80 unit tests), `npm run typecheck`, `npm run build`,
 | --- | --- | --- |
 | `ERR_CONNECTION_REFUSED` | The dev server is not running | Check the terminal still shows `VITE ready` — it stays running until you press Ctrl+C |
 | `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1 | Run the commands on separate lines |
-| `Port 5173 is in use` | Something else has the port | Vite prints the port it picked instead — use that one |
+| `Port 5173 is in use` | Another app instance has the port | Stop the previous instance before running npm start |
 | `Unsupported engine` on install | Node is older than 20 | Install a current Node from nodejs.org |
 
 ## How it works
@@ -66,12 +67,11 @@ Data lives in `src/data/`: 43 ingredients, 51 product lines with real pack sizes
 
 ## Connecting a real supermarket basket
 
-The plan can be pushed into a real online basket, using a session cookie you copy from your own
-signed-in browser tab. Two processes, because the browser cannot hold that cookie safely:
+The plan uses Open Supermarkets to reach Tesco. Connect through a dedicated Chrome profile:
 
 ```
-npm run server        # terminal 1 — holds the session, talks to the retailer
-npm run dev           # terminal 2 — the app
+npm run connect
+npm start
 ```
 
 `npm run server:mock` runs the same flow against a built-in mock shop, with no real account
@@ -82,18 +82,16 @@ expires: **[docs/live-basket.md](docs/live-basket.md)**. The short version:
 
 - The cookie is a credential worth as much as your password. It stays in your home directory, is
   read only by the local server, and never reaches the page, a log, or this repo.
-- No retailer's endpoints are hard-coded here. `npm run refresh -- search chicken` learns them from
-  a request you copy out of DevTools ("Copy as cURL"), replaying it once to read the response shape.
-  Retailer tokens expire in minutes, so capture and learn happen in one step.
-- Automating a retailer account is very likely against their terms of use. Requests go one at a
-  time with a gap; nothing is ever checked out or paid for.
+- Open Supermarkets owns retailer operations. Captured cURLs and retailer.config.json are no longer replayed. `npm run refresh -- basket` now opens the connection helper for compatibility.
+- Reads can refresh a rejected session through the saved Chrome profile. If interaction is required, run npm run connect. A future token expiry does not prove the session works.
+- Basket attempts are journalled and writes are not retried automatically. No checkout or payment is performed.
 - The app always **reads the basket back** after adding, and shows the retailer's own total
   separately from our estimate — theirs includes delivery and offers, and is the one that counts.
 
 ## What is not built
 
 - **Checkout.** Nothing pays for anything, by design.
-- Retailer endpoints for any specific shop — that is config you supply (see above).
+- Other live retailers; Tesco is first.
 - Accounts, saved plans across devices, or live prices in the planning catalogue — the 51 product
   lines used for planning are static sample data.
 - Nutrition, leftovers, or carrying an ingredient over to next week.

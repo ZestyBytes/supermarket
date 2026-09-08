@@ -81,8 +81,14 @@ export async function readBasket(): Promise<RetailerBasket> {
   return basket;
 }
 
+export async function searchBatch(queries: string[]): Promise<Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }>> {
+  const result = await request<{ results: Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }> }>("/search-batch", { method: "POST", body: JSON.stringify({ queries }) });
+  return result.results;
+}
+
 export async function addToBasket(
   items: Array<{ productId: string; qty: number }>,
+  attemptId: string,
 ): Promise<{ added: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
-  return request("/basket", { method: "POST", body: JSON.stringify({ items }) });
+  return request("/basket", { method: "POST", body: JSON.stringify({ items, attemptId }) });
 }

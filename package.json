@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "vite",
+    "start": "node scripts/start.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
@@ -17,18 +17,24 @@
     "typecheck": "tsc --noEmit",
     "server": "node server/index.mjs",
     "server:mock": "node server/index.mjs --mock",
-    "tesco:import": "node scripts/import-session.mjs",
-    "capture": "node scripts/capture-request.mjs",
-    "refresh": "node scripts/refresh.mjs"
+    "tesco:import": "node scripts/connect-tesco.mjs",
+    "capture": "node scripts/retired-capture.mjs",
+    "refresh": "node scripts/connect-tesco.mjs",
+    "connect": "node scripts/connect-tesco.mjs",
+    "postinstall": "patch-package"
   },
   "dependencies": {
+    "open-supermarkets": "3.0.0",
+    "playwright": "1.63.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "patch-package": "8.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
     "vitest": "^3.2.7"

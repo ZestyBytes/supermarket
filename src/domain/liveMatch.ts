@@ -24,7 +24,7 @@ export interface LiveChoice {
 export interface LiveReview {
   requirement: Requirement;
   /** Why this could not be decided automatically. */
-  reason: "no-results" | "unreadable-size" | "wrong-unit";
+  reason: "no-results" | "unreadable-size" | "wrong-unit" | "search-failed";
   candidates: RetailerProduct[];
 }
 
@@ -44,11 +44,16 @@ export interface LiveMatch {
 export function chooseLiveProducts(
   results: Map<string, RetailerProduct[]>,
   requirements: Requirement[],
+  failures: Set<string> = new Set(),
 ): LiveMatch {
   const choices: LiveChoice[] = [];
   const review: LiveReview[] = [];
 
   for (const requirement of requirements) {
+    if (failures.has(requirement.ingredient.id)) {
+      review.push({ requirement, reason: 'search-failed', candidates: [] });
+      continue;
+    }
     const candidates = results.get(requirement.ingredient.id) ?? [];
     if (candidates.length === 0) {
       review.push({ requirement, reason: "no-results", candidates });
@@ -56,6 +61,7 @@ export function chooseLiveProducts(
     }
 
     const costed = candidates
+      .filter(product => relevantProduct(requirement.ingredient.id, product.title))
       .map((product) => {
         const size = parsePackSize(product.size ? `${product.title} ${product.size}` : product.title);
         if (!size) return { product, problem: "unreadable-size" as const };
@@ -99,7 +105,28 @@ export function chooseLiveProducts(
 
 /** The search term to send for an ingredient. Deliberately plain — retailers match words. */
 export function searchTermFor(requirement: Requirement): string {
+  const terms: Record<string, string> = { 'beef-mince': 'beef mince 5% fat', 'chicken-thigh': 'chicken thigh fillets', rice: 'basmati rice 1kg', tortilla: 'plain tortilla wraps', ginger: 'ginger', pepper: 'peppers', peas: 'frozen garden peas', lemon: 'lemons pack', lime: 'limes pack' };
+  if (terms[requirement.ingredient.id]) return terms[requirement.ingredient.id];
   return requirement.ingredient.name.replace(/,.*$/, "").trim();
+}
+
+function relevantProduct(id: string, title: string): boolean {
+  const exclusions: Record<string, RegExp> = {
+    rice: /microwave|ready|cooked|pouch|boil in|wholegrain|brown/i,
+    'chicken-breast': /cooked|roast|breaded|battered|nugget|sliced|kiev|southern|goujon/i,
+    'chicken-thigh': /bone.in|drumstick|skin.on/i,
+    tortilla: /mini|kit|chips|pocket/i,
+    potato: /mashed|roast|chips|fries|croquette|dauphinoise|crisps/i,
+    carrot: /baton|cake|juice|mash/i,
+    salmon: /smoked|paste|spread|en.croute/i,
+    ginger: /ground|beer|biscuit|paste|syrup|yogurt|yoghurt|puree|crushed|crystallised|lazy|shot|tea|aperitif/i,
+    peas: /water|sweetcorn|split|soup/i,
+    pepper: /mini|sliced|frozen|towel|wax|black|ground/i,
+    lemon: /juice|curd|cake|drink/i,
+    lime: /juice|cordial|pickle|drink/i,
+  };
+  if (id === 'beef-mince' && !/5\s*%/.test(title)) return false;
+  return !exclusions[id]?.test(title);
 }
 
 /**

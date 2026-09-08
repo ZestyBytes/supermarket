@@ -12,3 +12,12 @@ basket.txt
 add.txt
 *.curl.txt
 capture/
+*.har
+*.curl
+*cookies*.json
+*session*.json
+.local/
+.env*
+!.env.example
+test-results/
+playwright-report/

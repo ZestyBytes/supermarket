@@ -64,6 +64,12 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
       basket.set(productId, { ...product, qty: (existing?.qty ?? 0) + qty });
       return { ok: true };
     },
+    async setQuantity(productId, qty) {
+      maybeFail();
+      const product = SHELF.find(item => item.id === productId);
+      if (!product) throw retailerError('BAD_REQUEST', 'Unknown mock product.');
+      basket.set(productId, { ...product, qty });
+    },
   };
 }
 

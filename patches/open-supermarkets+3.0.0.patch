@@ -1,0 +1,58 @@
+diff --git a/node_modules/open-supermarkets/dist/providers/tesco/api.js b/node_modules/open-supermarkets/dist/providers/tesco/api.js
+index e79431f..150cb38 100644
+--- a/node_modules/open-supermarkets/dist/providers/tesco/api.js
++++ b/node_modules/open-supermarkets/dist/providers/tesco/api.js
+@@ -50,6 +50,7 @@ class TescoAPI {
+                 'Origin': 'https://www.tesco.com',
+             },
+             withCredentials: true,
++            timeout: 15000,
+         });
+         this.client.interceptors.response.use(response => response, error => {
+             if (isAuthError(error)) {
+@@ -62,6 +63,15 @@ class TescoAPI {
+     setAuthCookies(cookieString) {
+         this.client.defaults.headers.common['Cookie'] = cookieString;
+     }
++    // Local compatibility patch: accept the shopper's browser-session headers.
++    // Retailer operations remain upstream; no captured request bodies are replayed.
++    setSessionHeaders(headers) {
++        const allowed = ['authorization', 'x-apikey', 'customer-uuid', 'language', 'region', 'user-agent', 'origin', 'referer'];
++        for (const key of allowed) {
++            const value = headers[key];
++            if (typeof value === 'string' && !/[\r\n]/.test(value)) this.client.defaults.headers[key] = value;
++        }
++    }
+     // ─────────────────────────────────────────────────────────
+     // GraphQL helper
+     // ─────────────────────────────────────────────────────────
+@@ -122,6 +132,7 @@ class TescoAPI {
+         // Step 1: get TPNBs from the public search API
+         const searchResp = await axios_1.default.get('https://search.api.tesco.com/search', {
+             params: { distchannel: 'ghs', query, count, offset },
++            timeout: 15000,
+             headers: {
+                 Accept: 'application/json',
+                 'Accept-Language': 'en-GB',
+diff --git a/node_modules/open-supermarkets/dist/providers/tesco/index.js b/node_modules/open-supermarkets/dist/providers/tesco/index.js
+index eccf042..074531e 100644
+--- a/node_modules/open-supermarkets/dist/providers/tesco/index.js
++++ b/node_modules/open-supermarkets/dist/providers/tesco/index.js
+@@ -43,10 +43,15 @@ exports.TescoProvider = void 0;
+ const api_1 = require("./api");
+ const auth_1 = require("./auth");
+ class TescoProvider {
+-    constructor() {
++    constructor(session) {
+         this.name = 'tesco';
+         this.api = new api_1.TescoAPI();
+-        this.loadSession();
++        if (session) {
++            this.api.setAuthCookies(session.cookie || '');
++            this.api.setSessionHeaders(session.headers || {});
++        } else {
++            this.loadSession();
++        }
+     }
+     loadSession() {
+         try {
