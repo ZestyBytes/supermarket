@@ -82,8 +82,9 @@ expires: **[docs/live-basket.md](docs/live-basket.md)**. The short version:
 
 - The cookie is a credential worth as much as your password. It stays in your home directory, is
   read only by the local server, and never reaches the page, a log, or this repo.
-- No retailer's endpoints are hard-coded here. Copy `retailer.config.example.json` to
-  `retailer.config.json` and fill in what you see in DevTools.
+- No retailer's endpoints are hard-coded here. `npm run retailer:learn` builds the config from
+  requests you copy out of DevTools ("Copy as cURL"), replaying a search once to learn the
+  response shape.
 - Automating a retailer account is very likely against their terms of use. Requests go one at a
   time with a gap; nothing is ever checked out or paid for.
 - The app always **reads the basket back** after adding, and shows the retailer's own total

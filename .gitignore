@@ -5,3 +5,10 @@ dist/
 
 # Retailer endpoints, edited locally. Never contains the session itself.
 retailer.config.json
+
+# Requests copied out of DevTools contain the session cookie. Never commit them.
+search.txt
+basket.txt
+add.txt
+*.curl.txt
+capture/

@@ -25,22 +25,7 @@ saved cards, the lot. So:
 
 ## Setup
 
-### 1. Describe the retailer's endpoints
-
-No retailer's internal API is hard-coded in this repo. Guessing endpoints produces a client that
-fails in ways that look like bugs somewhere else, so the endpoints live in config you fill in from
-what you can see in DevTools on the retailer's own site:
-
-```
-cp retailer.config.example.json retailer.config.json
-```
-
-Open the retailer in your browser, sign in, then in DevTools → Network watch a search and a basket
-read. Copy the request paths and the shape of the responses into `retailer.config.json`. The
-`results` and `fields` values are dotted paths into the JSON: `data.results[]` reaches a list,
-`price.actual` a value inside each entry.
-
-### 2. Import the session
+### 1. Import the session
 
 ```
 npm run tesco:import
@@ -55,6 +40,43 @@ If another tool already stored a session, import from that file instead:
 ```
 npm run tesco:import -- --from-file "C:\Users\you\.tesco\session.json"
 ```
+
+### 2. Teach it the retailer's endpoints
+
+No retailer's internal API is hard-coded in this repo — guessing endpoints produces a client that
+fails in ways that look like bugs somewhere else. Instead, hand it the requests the retailer's own
+site makes, and it works the rest out.
+
+In your signed-in tab, open DevTools → Network, then:
+
+1. **Search for something** (say `chicken`). Find the request that returns the products — the one
+   whose response contains the product titles. Right-click → **Copy** → **Copy as cURL**. Paste it
+   into a file, `search.txt`, in the project folder.
+2. **Open your basket.** Copy the request that returns its contents the same way, into
+   `basket.txt`.
+3. **Add one cheap item to your basket by hand.** Copy that request into `add.txt`, and note the
+   product id and quantity it sent.
+
+Then:
+
+```
+npm run retailer:learn -- --kind search      --term chicken --file search.txt
+npm run retailer:learn -- --kind basket-read                --file basket.txt
+npm run retailer:learn -- --kind basket-add  --product-id 254656732 --qty 1 --file add.txt
+```
+
+Each command strips the cookie out (it is never written to config), templates out the bits that
+vary, and — for search and basket-read — replays the request once with your imported session so it
+can see where the products, prices and total actually sit in the response. It prints what it found
+and writes `retailer.config.json`.
+
+`--kind basket-add` is never replayed: configuring the app should not put anything in your basket.
+
+Add `--dry-run` to any of them to print the config without writing it.
+
+Delete `search.txt`, `basket.txt` and `add.txt` when you are done: **they contain your cookie.**
+Those names are gitignored, so an accidental `git add .` will not commit them, but they are still
+plain-text credentials sitting in the project folder.
 
 ### 3. Run both halves
 

@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit",
     "server": "node server/index.mjs",
     "server:mock": "node server/index.mjs --mock",
-    "tesco:import": "node scripts/import-session.mjs"
+    "tesco:import": "node scripts/import-session.mjs",
+    "retailer:learn": "node scripts/learn-endpoint.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
