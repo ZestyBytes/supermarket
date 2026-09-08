@@ -11,12 +11,30 @@ separate lines.
 
 ## Run it
 
-```bash
+Needs Node 20 or newer (`node --version` to check). Run each line on its own:
+
+```
 npm install
-npm run dev      # http://localhost:5173
+npm run dev
 ```
 
+Then open **http://localhost:5173**.
+
+> **Windows PowerShell:** don't chain these with `&&`. Windows PowerShell 5.1 — the blue one that
+> ships with Windows — treats `&&` as a syntax error and runs nothing, so the dev server never
+> starts and the browser shows `ERR_CONNECTION_REFUSED`. One command per line works everywhere;
+> `;` chains them in any PowerShell, and `&&` works in PowerShell 7+ and in cmd, bash and zsh.
+
 Other scripts: `npm test` (48 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
+
+### If the page will not load
+
+| What you see | Cause | Fix |
+| --- | --- | --- |
+| `ERR_CONNECTION_REFUSED` | The dev server is not running | Check the terminal still shows `VITE ready` — it stays running until you press Ctrl+C |
+| `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1 | Run the commands on separate lines |
+| `Port 5173 is in use` | Something else has the port | Vite prints the port it picked instead — use that one |
+| `Unsupported engine` on install | Node is older than 20 | Install a current Node from nodejs.org |
 
 ## How it works
 

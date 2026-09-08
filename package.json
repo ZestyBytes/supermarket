@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "description": "UK meal planning that turns a week of dinners into one consolidated grocery basket",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
