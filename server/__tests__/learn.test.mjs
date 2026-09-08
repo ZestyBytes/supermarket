@@ -5,6 +5,8 @@ import {
   inferList,
   inferTotal,
   looksLikeSearch,
+  mutationsIn,
+  narrowToOperation,
   operationsIn,
   parseCurl,
   pickRequest,
@@ -338,5 +340,37 @@ describe("pickRequest is not fooled by a term mentioned elsewhere", () => {
     const odd = 'curl --url "https://x/" --data-raw "[{\\"operationName\\":\\"Lookup\\",\\"variables\\":{\\"query\\":\\"a.b\\"}}]"';
     expect(pickRequest([odd], "search", undefined, { term: "a.b" }).ok).toBe(true);
     expect(pickRequest([odd], "search", undefined, { term: "axb" }).ok).toBe(false);
+  });
+});
+
+describe("narrowToOperation / mutationsIn", () => {
+  // A real Tesco basket page batches these three into one POST.
+  const batch = JSON.stringify([
+    { operationName: "UpdateBasket", query: "mutation UpdateBasket($items: [X]) { basket { id } }" },
+    { operationName: "AnalyticsSellerIds", query: "query AnalyticsSellerIds { basket { id } }" },
+    { operationName: "GetBasket", query: "query GetBasket { basket { id totalPrice } }" },
+  ]);
+
+  it("keeps only the operation being learned", () => {
+    const narrowed = JSON.parse(narrowToOperation(batch, "GetBasket"));
+    expect(narrowed).toHaveLength(1);
+    expect(narrowed[0].operationName).toBe("GetBasket");
+  });
+
+  it("drops the mutation that would edit the basket on every read", () => {
+    expect(mutationsIn(narrowToOperation(batch, "GetBasket"))).toEqual([]);
+  });
+
+  it("names the mutations in a batch", () => {
+    expect(mutationsIn(batch)).toEqual(["UpdateBasket"]);
+  });
+
+  it("leaves a body it cannot parse alone", () => {
+    expect(narrowToOperation("not json", "GetBasket")).toBe("not json");
+    expect(mutationsIn("not json")).toEqual([]);
+  });
+
+  it("keeps the whole body when the operation is not in it", () => {
+    expect(narrowToOperation(batch, "Search")).toBe(batch);
   });
 });

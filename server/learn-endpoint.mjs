@@ -1,5 +1,16 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { inferFields, inferList, inferTotal, looksLikeSearch, operationsIn, parseCurl, templatize, tokenLife } from "./learn.mjs";
+import {
+  inferFields,
+  inferList,
+  inferTotal,
+  looksLikeSearch,
+  mutationsIn,
+  narrowToOperation,
+  operationsIn,
+  parseCurl,
+  templatize,
+  tokenLife,
+} from "./learn.mjs";
 import { loadSession, updateSession } from "./session.mjs";
 
 /**
@@ -15,6 +26,7 @@ export async function learnEndpoint({
   term,
   productId,
   qty,
+  operation,
   configFile = "retailer.config.json",
   dryRun = false,
   log = console,
@@ -85,7 +97,20 @@ export async function learnEndpoint({
   config.headers = { ...(config.headers ?? {}), ...keepUsefulHeaders(spec.headers) };
 
   const entry = { method: spec.method, path: spec.path };
-  if (spec.body) entry.body = spec.body;
+
+  // Store only the operation being learned. The capture may batch it with
+  // others — including mutations that would change the basket every time it
+  // is read.
+  let body = operation ? narrowToOperation(spec.body, operation) : spec.body;
+  if (kind !== "basket-add") {
+    const mutations = mutationsIn(body);
+    if (mutations.length > 0) {
+      log.warn(`\nRefusing to store this: it carries the mutation ${mutations.join(", ")}, which changes your basket.`);
+      log.warn("  A read must not have side effects. Capture the request again without that action.\n");
+      return { ok: false, reason: "carries-mutation", operations };
+    }
+  }
+  if (body) entry.body = body;
 
   let outcome = { ok: false };
 
@@ -94,7 +119,7 @@ export async function learnEndpoint({
     log.log("Recorded the add-to-basket request. It was not replayed — configuring must not buy anything.");
     outcome = { ok: true, replayed: false };
   } else {
-    const payload = await replay(spec, log);
+    const payload = await replay({ ...spec, body }, log);
     if (payload) {
       const list = inferList(payload);
       if (!list) {
@@ -252,6 +277,8 @@ function sampleFrom(payload, listPath) {
  * are already gone: parseCurl strips them before this runs.
  */
 function keepUsefulHeaders(headers) {
-  const drop = /^(host|connection|content-length|referer|origin|sec-|:|accept-encoding|priority|cookie|authorization)/i;
+  // Origin and referer stay: an API gateway fronting a browser app often
+  // checks them, and dropping them reads as an unauthenticated request.
+  const drop = /^(host|connection|content-length|sec-|:|accept-encoding|priority|cookie|authorization)/i;
   return Object.fromEntries(Object.entries(headers).filter(([name]) => !drop.test(name)));
 }

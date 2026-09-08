@@ -84,6 +84,7 @@ if (picked.operation) console.log(`Picked the "${picked.operation}" request.`);
 const outcome = await learnEndpoint({
   text: picked.command,
   kind: chosen.kind,
+  operation: picked.operation ?? undefined,
   term: kindArg === "search" ? first : undefined,
   productId: kindArg === "add" ? first : undefined,
   qty: kindArg === "add" ? (second ?? "1") : undefined,
@@ -98,7 +99,7 @@ if (outcome.ok) {
 } else if (outcome.reason === "expired") {
   console.error("Reload the page, redo the action, and run this again.");
   process.exit(1);
-} else if (outcome.reason === "wrong-operation") {
+} else if (outcome.reason === "wrong-operation" || outcome.reason === "carries-mutation") {
   process.exit(1);
 } else {
   console.error("The endpoint was recorded, but the response could not be read automatically.");

@@ -439,3 +439,41 @@ function escapeRegex(value) {
 function names(entries) {
   return [...new Set(entries.flatMap((entry) => entry.operations))].sort();
 }
+
+/**
+ * Keep only the operation we actually want from a batched request.
+ *
+ * A retailer batches unrelated operations into one POST: reading a basket
+ * arrives alongside a mutation that *changes* it. Storing the batch verbatim
+ * would mean every basket read replays that mutation — silently editing the
+ * basket as a side effect of looking at it.
+ */
+export function narrowToOperation(body, operationName) {
+  if (typeof body !== "string" || !operationName) return body;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  if (!Array.isArray(parsed)) return body;
+
+  const kept = parsed.filter((entry) => entry?.operationName === operationName);
+  return kept.length > 0 ? JSON.stringify(kept) : body;
+}
+
+/** Operations that change something, and must never end up in a read. */
+export function mutationsIn(body) {
+  if (typeof body !== "string") return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return [];
+  }
+  const entries = Array.isArray(parsed) ? parsed : [parsed];
+  return entries
+    .filter((entry) => typeof entry?.query === "string" && /^\s*mutation\b/.test(entry.query))
+    .map((entry) => entry.operationName ?? "(unnamed)");
+}
