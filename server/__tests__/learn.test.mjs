@@ -290,3 +290,28 @@ describe("splitCurls / pickRequest", () => {
     expect(pickRequest([rest], "basket-read")).toMatchObject({ ok: true, operation: null });
   });
 });
+
+describe("pickRequest by the term you typed", () => {
+  const analytics = 'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"AnalyticsSellerIds\\"}]"';
+  const oddlyNamed = 'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"GHSSearchV2\\",\\"variables\\":{\\"query\\":\\"chicken\\"}}]"';
+
+  it("finds the search by the word typed, whatever the operation is called", () => {
+    // Operation names differ between retailers and change over time; the term
+    // the shopper typed is in the request no matter what.
+    const picked = pickRequest([analytics, oddlyNamed], "search", undefined, { term: "chicken" });
+    expect(picked.ok).toBe(true);
+    expect(picked.command).toBe(oddlyNamed);
+    expect(picked.operation).toBe("GHSSearchV2");
+  });
+
+  it("says the search is absent rather than picking something else", () => {
+    const picked = pickRequest([analytics], "search", undefined, { term: "chicken" });
+    expect(picked.ok).toBe(false);
+  });
+
+  it("prefers a search-named operation when several carry the term", () => {
+    const suggestions = 'curl --url "https://x/" --data-raw "[{\\"operationName\\":\\"Suggestions\\",\\"variables\\":{\\"query\\":\\"chicken\\"}}]"';
+    const search = 'curl --url "https://x/" --data-raw "[{\\"operationName\\":\\"Search\\",\\"variables\\":{\\"query\\":\\"chicken\\"}}]"';
+    expect(pickRequest([suggestions, search], "search", undefined, { term: "chicken" }).command).toBe(search);
+  });
+});

@@ -71,7 +71,7 @@ if (verdict.kind !== "curl") {
 const commands = splitCurls(clipboard);
 console.log(`\nGot ${commands.length} request${commands.length === 1 ? "" : "s"} from the clipboard.`);
 
-const picked = pickRequest(commands, chosen.kind, third);
+const picked = pickRequest(commands, chosen.kind, third, { term: kindArg === "search" ? first : undefined });
 if (!picked.ok) {
   reportPickFailure(picked);
   process.exit(1);
@@ -119,8 +119,11 @@ function reportPickFailure(picked) {
     return;
   }
   console.error(`\nNothing in the clipboard looks like ${chosen.what}.`);
+  if (kindArg === "search") {
+    console.error(`  No copied request contained "${first}" — so the search you typed is not among them.`);
+    console.error("  Clear the Network list, search again with it open, then copy all as cURL.");
+  }
   console.error(`  The requests copied were: ${picked.seen.slice(0, 20).join(", ") || "(none named)"}`);
-  console.error("  Do the action in the browser first, then copy all as cURL.");
 }
 
 function waitForEnter() {

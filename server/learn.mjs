@@ -378,7 +378,7 @@ const WANTED = {
  * them apart. Returns the chosen command, or the candidates when the choice
  * is not obvious enough to make automatically.
  */
-export function pickRequest(commands, kind, preferred) {
+export function pickRequest(commands, kind, preferred, { term } = {}) {
   const parsed = commands.map((command) => {
     let request = null;
     try {
@@ -393,6 +393,22 @@ export function pickRequest(commands, kind, preferred) {
   if (usable.length === 0) return { ok: false, reason: "none-parsed", seen: [] };
   if (usable.length === 1 && usable[0].operations.length === 0) {
     return { ok: true, command: usable[0].command, operation: null };
+  }
+
+  // The search request is the one carrying the word you typed. That holds
+  // whatever the retailer calls its operation, so it is tried first.
+  if (term && !preferred) {
+    const carrying = usable.filter((entry) => entry.request.body?.toLowerCase().includes(`"${term.toLowerCase()}"`));
+    if (carrying.length === 1) {
+      return { ok: true, command: carrying[0].command, operation: carrying[0].operations[0] ?? null };
+    }
+    if (carrying.length > 1) {
+      const preferredByName = carrying.filter((entry) =>
+        (WANTED[kind] ?? []).some((pattern) => entry.operations.some((name) => pattern.test(name))),
+      );
+      const winner = preferredByName[0] ?? carrying[0];
+      return { ok: true, command: winner.command, operation: winner.operations[0] ?? null };
+    }
   }
 
   if (preferred) {
