@@ -1,10 +1,15 @@
-# Publishes the built app to GitHub Pages so it can be opened in a browser
-# without checking the repo out. Enable Pages → "GitHub Actions" in repo settings.
+# Publishes the built app to GitHub Pages, so it can be opened on a phone
+# without checking the repo out. Enable Pages → "GitHub Actions" in repo
+# settings for this to have somewhere to publish to.
+#
+# The hosted copy is the meal planner only. The live-basket half needs the
+# local server that holds the session, and that never leaves one machine —
+# the app detects a static build and says so rather than offering dead buttons.
 name: Deploy to Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/first-version-built-xzviqu]
   workflow_dispatch:
 
 permissions:

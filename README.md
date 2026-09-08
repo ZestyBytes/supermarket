@@ -25,7 +25,17 @@ Then open **http://localhost:5173**.
 > starts and the browser shows `ERR_CONNECTION_REFUSED`. One command per line works everywhere;
 > `;` chains them in any PowerShell, and `&&` works in PowerShell 7+ and in cmd, bash and zsh.
 
-Other scripts: `npm test` (80 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
+Other scripts: `npm test` (145 unit tests), `npm run typecheck`, `npm run build`, `npm run preview`.
+
+### On a phone
+
+Every push to `main` or `claude/first-version-built-xzviqu` publishes the built app to GitHub Pages,
+so the planner can be opened on a phone without checking anything out. Turn it on once in the repo's
+**Settings → Pages → Source → GitHub Actions**; the URL then appears on the *Deploy to Pages* run.
+
+The hosted copy is the meal planner only. Adding to a real basket needs the local server that holds
+your session, and a session that never leaves your machine cannot follow the app onto the web — so
+the app detects a static build and says so, rather than offering a button that cannot work.
 
 ### If the page will not load
 

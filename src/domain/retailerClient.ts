@@ -44,6 +44,22 @@ export interface RetailerBasket {
 
 const BASE = "/api";
 
+/**
+ * Whether a local server could possibly be listening for this page.
+ *
+ * The session lives in a process on the shopper's own machine, reached through
+ * the dev server's `/api` proxy. A build served from anywhere else — GitHub
+ * Pages, a phone on the sofa — has no such process behind `/api`, and the
+ * requests land on the static host instead, which answers 404 in HTML. That
+ * is indistinguishable from a retailer fault unless we check first, so the
+ * app asks this before offering to talk to a retailer at all.
+ */
+export function hasLocalServer(): boolean {
+  if (typeof window === "undefined") return false;
+  const { hostname } = window.location;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -60,7 +76,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     | null;
 
   if (!response.ok || !payload?.ok) {
-    const error = payload?.error;
+    // No JSON body at all means nothing that speaks our protocol answered —
+    // a static host serving its own 404 page, not a retailer refusing us.
+    if (!payload) {
+      throw new RetailerError(
+        "OFFLINE",
+        hasLocalServer()
+          ? "The local server is not running. Start it with: npm run server"
+          : "This copy is served as a static site, so there is no local server to reach. Run it on your own machine to use a real basket.",
+      );
+    }
+    const error = payload.error;
     throw new RetailerError(error?.code ?? "RETAILER_ERROR", error?.message ?? `Request failed (${response.status}).`);
   }
   return payload as T;

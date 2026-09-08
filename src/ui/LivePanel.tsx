@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   addToBasket,
   getSession,
+  hasLocalServer,
   readBasket,
   RetailerError,
   search,
@@ -36,9 +37,13 @@ export function LivePanel({ requirements }: Props) {
   const [problem, setProblem] = useState<{ code: string; message: string } | null>(null);
   const [progress, setProgress] = useState("");
 
+  const local = hasLocalServer();
+
   useEffect(() => {
-    refreshSession();
-  }, []);
+    if (local) refreshSession();
+  }, [local]);
+
+  if (!local) return <PlanningOnly />;
 
   async function refreshSession() {
     try {
@@ -231,6 +236,36 @@ export function LivePanel({ requirements }: Props) {
         <p className="retailer__note">
           Nothing is ever checked out or paid for. The session stays on this machine — the page asks
           the local server, and only that server talks to the retailer.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What the panel becomes on a static build — a hosted preview, or a phone.
+ *
+ * Offering buttons here would be dishonest: the session is a file on one
+ * machine and there is no way for this page to reach it. Better to say so than
+ * to let someone tap "Add to my basket" and get a shrug.
+ */
+function PlanningOnly() {
+  return (
+    <section className="card retailer" aria-labelledby="live-head">
+      <div className="card__head">
+        <h2 id="live-head">Your real basket</h2>
+        <span className="label">Planning only</span>
+      </div>
+      <div className="card__body retailer__body">
+        <p className="notice">
+          <strong>Not available on this copy.</strong> Adding to a real Tesco basket needs the local
+          server, which holds your session and runs only on your own machine. Everything else on this
+          page — the meals, the consolidated list, the quantities and totals — works here in full.
+        </p>
+        <p className="retailer__note">
+          To use a real basket, clone the repo and run <code>npm run server</code> alongside{" "}
+          <code>npm run dev</code>. Your session never leaves that machine, which is the whole reason
+          it cannot follow the app to a hosted page.
         </p>
       </div>
     </section>

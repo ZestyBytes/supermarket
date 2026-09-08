@@ -102,7 +102,7 @@ code { font-family: var(--mono); font-size: .9em; }
 .strip { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
 .strip h1 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); letter-spacing: -.02em; }
 .strip p { margin-top: .4rem; color: var(--muted); max-width: 58ch; }
-.strip__note { font-family: var(--mono); font-size: .72rem; color: var(--muted); border-left: 2px solid var(--amber); padding-left: .6rem; line-height: 1.7; }
+.strip__note { font-family: var(--mono); font-size: .72rem; color: var(--muted); background: color-mix(in srgb, var(--amber) 14%, transparent); border-radius: var(--r); padding: .35rem .55rem; line-height: 1.6; }
 
 /* ---------- panels ---------- */
 .panel { display: grid; gap: .8rem; }
@@ -114,7 +114,7 @@ code { font-family: var(--mono); font-size: .9em; }
 
 .empty { color: var(--muted); padding: 1.2rem 0; }
 .empty--tight { padding: 1rem .9rem; }
-.warn { font-size: .85rem; color: var(--price); border-left: 2px solid var(--price); padding-left: .6rem; }
+.warn { font-size: .85rem; color: var(--price); background: color-mix(in srgb, var(--price) 9%, transparent); border-radius: var(--r); padding: .35rem .55rem; }
 
 .input { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: .35rem .6rem; min-width: 12rem; }
 .filters { display: flex; gap: .5rem; }
@@ -217,7 +217,7 @@ code { font-family: var(--mono); font-size: .9em; }
 
 .progress { margin-top: .8rem; }
 .progress__track { height: 5px; background: var(--paper); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
-.progress__fill { height: 100%; background: var(--leaf); transition: width .35s ease; }
+.progress__fill { width: 100%; height: 100%; background: var(--leaf); transform-origin: left center; transition: transform .35s ease; }
 .progress__note { margin-top: .35rem; font-family: var(--mono); font-size: .68rem; color: var(--muted); }
 
 .slots { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
@@ -239,6 +239,48 @@ code { font-family: var(--mono); font-size: .9em; }
   .pane { position: static; }
   .lines { max-height: none; }
 }
+
+/* Phones. Three things matter here and none are cosmetic:
+   iOS zooms the whole page when it focuses a control below 16px, tap targets
+   under ~44px get mis-hit, and the home-bar overlaps anything pinned to the
+   bottom edge. */
+@media (max-width: 640px) {
+  .layout { padding: 1rem .9rem 3rem; gap: 1.1rem; }
+  .col { gap: 1.1rem; }
+  .masthead__in { padding: .6rem .9rem; gap: .6rem .9rem; }
+  .brand__strap { display: none; }
+  .masthead__basket { justify-items: start; }
+
+  .strip { gap: .8rem; }
+  .strip h1 { font-size: 1.65rem; }
+
+  input, select, textarea { font-size: 16px; }
+  .input { min-width: 0; width: 100%; padding: .5rem .6rem; }
+  .filters { flex-direction: column; align-items: stretch; }
+
+  /* Comfortable thumb targets. */
+  .btn { padding: .6rem .9rem; }
+  .btn--go { padding: .7rem 1.1rem; width: 100%; text-align: center; }
+  .chip { padding: .45rem .8rem; font-size: .82rem; }
+  .mini { padding: .4rem 0; }
+  .mini--go { padding: .35rem .7rem; }
+  .seg button { padding: .55rem .9rem; }
+  .stepper { grid-template-columns: 2.5rem 2.6rem 2.5rem; }
+  .stepper button { padding: .5rem 0; }
+  .stepper--small { grid-template-columns: 2.2rem 2.2rem 2.2rem; }
+  .slot { padding: .6rem .7rem; }
+
+  .recipes, .shelves { grid-template-columns: minmax(0, 1fr); }
+  .retailer__lines { max-height: none; }
+  .retailer__acts { flex-direction: column; align-items: stretch; }
+  .retailer__acts .btn { width: 100%; text-align: center; }
+
+  .live { left: .9rem; right: .9rem; max-width: none; }
+}
+
+/* Clear of the iPhone home bar. */
+.live { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -251,9 +293,9 @@ code { font-family: var(--mono); font-size: .9em; }
 .retailer__session--off { color: var(--ink); }
 .retailer__session code, .notice code { background: var(--paper); padding: 0 .2rem; border-radius: 2px; }
 
-.notice { font-size: .8rem; border-left: 2px solid var(--line); padding-left: .6rem; }
-.notice--bad { border-color: var(--price); }
-.notice--warn { border-color: var(--amber); }
+.notice { font-size: .8rem; background: color-mix(in srgb, var(--muted) 10%, transparent); border-radius: var(--r); padding: .4rem .55rem; }
+.notice--bad { background: color-mix(in srgb, var(--price) 10%, transparent); }
+.notice--warn { background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .notice__how { color: var(--muted); }
 
 .retailer__progress { font-family: var(--mono); font-size: .72rem; color: var(--muted); }

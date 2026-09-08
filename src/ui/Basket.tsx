@@ -75,7 +75,9 @@ export function Basket({ lines, sums, slots, slotId, onSlot, onQty, onEmpty, onC
             <div className="progress__track">
               <div
                 className="progress__fill"
-                style={{ width: `${Math.min(100, (sums.goods / FREE_DELIVERY_OVER) * 100)}%` }}
+                // scaleX rather than width: the fill animates on every basket
+                // change, and width re-lays-out the page for each frame.
+                style={{ transform: `scaleX(${Math.min(1, sums.goods / FREE_DELIVERY_OVER)})` }}
               />
             </div>
             <p className="progress__note">
