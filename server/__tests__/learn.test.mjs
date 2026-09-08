@@ -88,6 +88,34 @@ describe("inferList", () => {
 });
 
 describe("inferFields", () => {
+  it("takes the pack price, not the price per kilo", () => {
+    // A real Tesco product carries both. Picking unitPrice would cost every
+    // basket wrong, and the shallower key is the wrong one here.
+    const product = {
+      id: "254656732",
+      title: "Tesco British Chicken Breast Fillets 650G",
+      unitPrice: 7.54,
+      unitOfMeasure: "kg",
+      price: { actual: 4.9 },
+    };
+    expect(inferFields(product).price).toBe("price.actual");
+  });
+
+  it("does not mistake the unit of measure for a pack size", () => {
+    const product = { id: "1", title: "Chicken 650G", unitOfMeasure: "kg", price: { actual: 4.9 } };
+    expect(inferFields(product).size).toBeUndefined();
+  });
+
+  it("reads a GraphQL-shaped product node", () => {
+    const node = {
+      __typename: "ProductDetailsType",
+      tpnb: "254656732",
+      title: "Tesco British Chicken Breast Fillets 650G",
+      price: { __typename: "ProductPriceType", actual: 4.9, unitPrice: 7.54 },
+    };
+    expect(inferFields(node)).toMatchObject({ id: "tpnb", title: "title", price: "price.actual" });
+  });
+
   it("maps id, title and price through nesting", () => {
     const sample = SEARCH_RESPONSE.data.search.results.productItems[0];
     expect(inferFields(sample)).toMatchObject({

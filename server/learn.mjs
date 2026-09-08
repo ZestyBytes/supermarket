@@ -164,10 +164,11 @@ function scoreRecord(sample) {
 }
 
 const ID = /^(id|productid|tpnb|tpnc|sku|baseproductid|gtin)$/i;
-const TITLE = /(title|name|description)$/i;
+// Anchored, and GraphQL's own `__typename` must not read as a name.
+const TITLE = /^(title|name|productname|displayname|description|label)$/i;
 const PRICE = /(price|actual|value|amount)$/i;
 const QTY = /(quantity|qty|count)$/i;
-const SIZE = /(size|weight|volume|packsize|unitofmeasure)$/i;
+const SIZE = /(size|weight|volume|packsize)$/i;
 const URL_KEY = /(url|link|href|slug)$/i;
 
 /** Suggest which field in each record is the id, the title, the price and so on. */
@@ -176,7 +177,7 @@ export function inferFields(sample, kind = "search") {
   const fields = {
     id: findKey(flat, ID),
     title: findKey(flat, TITLE),
-    price: findKey(flat, PRICE, (value) => typeof value === "number"),
+    price: findPrice(flat),
   };
 
   if (kind === "search") {
@@ -187,6 +188,31 @@ export function inferFields(sample, kind = "search") {
   }
 
   return Object.fromEntries(Object.entries(fields).filter(([, path]) => path));
+}
+
+/**
+ * Find what a pack costs, not what a kilo of it costs.
+ *
+ * Retailers put both on a product: `price.actual` is what you pay, `unitPrice`
+ * is £/kg for comparing shelf labels. Picking the shallower key would take the
+ * unit price and quietly cost the whole basket wrong, so anything unit-shaped
+ * is excluded and a path that actually says "price" wins.
+ */
+function findPrice(flat) {
+  const candidates = Object.entries(flat).filter(
+    ([key, value]) =>
+      typeof value === "number" &&
+      value > 0 &&
+      !/unit/i.test(key) &&
+      PRICE.test(key.split(".").pop() ?? ""),
+  );
+
+  candidates.sort(
+    (a, b) =>
+      Number(/price/i.test(b[0])) - Number(/price/i.test(a[0])) ||
+      a[0].split(".").length - b[0].split(".").length,
+  );
+  return candidates[0]?.[0];
 }
 
 /** Find a total-looking number outside the item list. */
@@ -212,7 +238,9 @@ function flatten(value, maxDepth = 4, path = "", out = {}, depth = 0) {
 
 function findKey(flat, pattern, accept = () => true) {
   const matches = Object.entries(flat).filter(([key, value]) => {
-    const leaf = key.split(".").pop();
+    const leaf = key.split(".").pop() ?? "";
+    // `__typename` and friends describe the shape, not the product.
+    if (leaf.startsWith("__")) return false;
     return pattern.test(leaf) && value != null && accept(value);
   });
   // Prefer the shallowest match: `price` beats `promotions.0.price`.

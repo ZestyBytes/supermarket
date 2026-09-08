@@ -141,10 +141,17 @@ function sampleFrom(payload, listPath) {
   return Array.isArray(node) ? node[0] : {};
 }
 
-/** Keep the headers that shape the response; drop the noise and anything secret. */
+/**
+ * Keep the headers the API actually needs; drop only noise.
+ *
+ * An allowlist looked safer but threw away the custom headers these APIs
+ * require — an `x-apikey` or a trace id — leaving requests that fail for no
+ * visible reason. Credentials are already gone: parseCurl drops the cookie and
+ * any authorization header before this runs.
+ */
 function pickSafeHeaders(headers) {
-  const keep = ["accept", "accept-language", "content-type", "x-requested-with", "user-agent"];
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => keep.includes(name)));
+  const drop = /^(host|connection|content-length|referer|origin|sec-|:|accept-encoding|priority)/i;
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => !drop.test(name)));
 }
 
 function flag(name) {
