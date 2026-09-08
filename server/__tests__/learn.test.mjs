@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferFields, inferList, inferTotal, parseCurl, templatize } from "../learn.mjs";
+import { classifyClipboard, inferFields, inferList, inferTotal, parseCurl, templatize } from "../learn.mjs";
 
 const BASH_CURL = `curl 'https://www.shop.example/api/search?query=chicken&count=20' \\
   -H 'accept: application/json' \\
@@ -107,5 +107,35 @@ describe("inferTotal", () => {
   it("finds the basket total", () => {
     const basket = { data: { items: [{ id: "1" }], total: { value: 36.95 }, itemCount: 7 } };
     expect(inferTotal(basket)).toBe("data.total.value");
+  });
+});
+
+describe("classifyClipboard", () => {
+  it("accepts a copied request and says where it goes", () => {
+    expect(classifyClipboard(BASH_CURL)).toMatchObject({ kind: "curl", method: "GET", host: "www.shop.example" });
+  });
+
+  it("spots a POST without an explicit -X", () => {
+    expect(classifyClipboard(CMD_CURL)).toMatchObject({ kind: "curl", method: "POST" });
+  });
+
+  it("catches the command being copied instead of the request", () => {
+    // The exact mistake this tool exists to prevent: copying the instruction
+    // replaces whatever was copied from DevTools.
+    const verdict = classifyClipboard("Get-Clipboard | Out-File -Encoding utf8 search.txt");
+    expect(verdict.kind).toBe("command");
+    expect(verdict.why).toMatch(/replaced what you copied/);
+  });
+
+  it("recognises a cookie header and does not save it as a request", () => {
+    expect(classifyClipboard("sessionId=abc123; _csrf=xyz; consent=1").kind).toBe("cookie");
+  });
+
+  it("reports an empty clipboard", () => {
+    expect(classifyClipboard("   ").kind).toBe("empty");
+  });
+
+  it("quotes back anything else it cannot place", () => {
+    expect(classifyClipboard("hello there").why).toContain("hello there");
   });
 });

@@ -219,3 +219,42 @@ function findKey(flat, pattern, accept = () => true) {
   matches.sort((a, b) => a[0].split(".").length - b[0].split(".").length);
   return matches[0]?.[0];
 }
+
+/** Work out what is actually on the clipboard, so a wrong copy fails loudly. */
+export function classifyClipboard(text) {
+  const trimmed = String(text ?? "").trim();
+
+  if (trimmed.length === 0) return { kind: "empty", why: "the clipboard is empty." };
+
+  if (/^curl\b/.test(trimmed)) {
+    const method = /-X\s+(\w+)|--request\s+(\w+)/.exec(trimmed);
+    const url = /['"](https?:\/\/[^'"]+)['"]/.exec(trimmed) ?? /\b(https?:\/\/\S+)/.exec(trimmed);
+    return {
+      kind: "curl",
+      method: (method?.[1] ?? method?.[2] ?? (/--data|-d\s/.test(trimmed) ? "POST" : "GET")).toUpperCase(),
+      host: url ? safeHost(url[1]) : "an unknown host",
+    };
+  }
+
+  // A cookie header: several name=value pairs and no shell verbs.
+  if (/^[\w-]+=[^;]*;/.test(trimmed) && !/\s\|\s|Get-Clipboard|Out-File/i.test(trimmed)) {
+    return { kind: "cookie", why: "it looks like a Cookie header, not a request." };
+  }
+
+  if (/Get-Clipboard|Out-File|npm run|^node\s|^git\s/i.test(trimmed)) {
+    return {
+      kind: "command",
+      why: "it is a shell command. Copying the command replaced what you copied from DevTools.",
+    };
+  }
+
+  return { kind: "unknown", why: `it starts with "${trimmed.slice(0, 40).replace(/\s+/g, " ")}…"` };
+}
+
+function safeHost(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "an unknown host";
+  }
+}

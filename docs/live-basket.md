@@ -54,14 +54,19 @@ In your signed-in tab, open DevTools → Network, then:
    whose response contains the product titles. Right-click → **Copy** → **Copy as cURL**. Paste it
    into a file, `search.txt`, in the project folder.
 
-   On Windows you do not need to open an editor — copy the request, then in the project folder run:
+   Easiest way, which checks what it caught:
 
    ```
-   Get-Clipboard | Out-File -Encoding utf8 search.txt
+   npm run capture -- search.txt
    ```
-2. **Open your basket.** Copy the request that returns its contents the same way, into
-   `basket.txt`.
-3. **Add one cheap item to your basket by hand.** Copy that request into `add.txt`, and note the
+
+   Start that **first**, then copy the request, then press Enter. Copying anything in between —
+   including a command out of these instructions — replaces the clipboard, and that is what would
+   get saved. The tool refuses anything that is not a cURL command and tells you what it found
+   instead.
+2. **Open your basket.** Capture the request that returns its contents the same way:
+   `npm run capture -- basket.txt`
+3. **Add one cheap item to your basket by hand.** Capture that request into `add.txt`, and note the
    product id and quantity it sent.
 
 Then:
