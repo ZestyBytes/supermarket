@@ -64,10 +64,7 @@ export function App() {
       {tab === "meals" && (
         <>
           <header className="top">
-            <div>
-              <h1 className="top__title">This week</h1>
-              <p className="top__sub">Choose the dinners, we do the shopping</p>
-            </div>
+            <h1 className="top__title">This week</h1>
           </header>
 
           <main className="sheet">
@@ -80,11 +77,6 @@ export function App() {
               onSurprise={surprise}
               onClear={() => setPlan([])}
             />
-
-            <div className="sectionhead">
-              <span className="label">Choose dinners</span>
-              <span className="aisle__n">{RECIPES.length} to choose from</span>
-            </div>
 
             <MealList
               recipes={RECIPES}

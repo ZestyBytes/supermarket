@@ -3,9 +3,9 @@
    a phone, and a shopping list wants to look like paper rather than follow
    the phone's mood.
 
-   Type does most of the work of not looking like a developer tool: a serif
-   for the things you choose between (meals, headings, totals), one clean sans
-   for everything else, and no monospace anywhere. */
+   One typeface throughout, doing its work with weight and size rather than
+   with a second face — and no monospace anywhere, which was the loudest
+   signal that this had been built for a terminal. */
 :root {
   color-scheme: light;
 
@@ -29,8 +29,9 @@
   --price-line: #EFD8D2;
   --price-mute: #8A7972;
 
-  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --sans:  Karla, "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  /* One family, several weights. A second face was doing decoration, not
+     work, and the serif read as a recipe magazine rather than a shop. */
+  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Helvetica Neue", sans-serif;
 
   --r-card: 14px;
   --r-big: 16px;
@@ -49,7 +50,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 { margin: 0; font-weight: 400; font-family: var(--serif); letter-spacing: -0.01em; text-wrap: balance; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
 p { margin: 0; }
 button { font: inherit; color: inherit; background: none; border: 0; }
 input, select { font: inherit; color: inherit; }
@@ -72,18 +73,18 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
 }
 
 .top {
-  padding: 22px 20px 12px;
+  padding: 18px 20px 10px;
   display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
 }
-.top__title { font-size: 32px; line-height: 1; }
+.top__title { font-size: 30px; line-height: 1.05; font-weight: 800; }
 .top__sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .top__count { text-align: right; }
-.top__countnum { font-family: var(--serif); font-size: 26px; line-height: 1; }
+.top__countnum { font-size: 26px; line-height: 1; font-weight: 800; }
 
 .sheet {
   flex: 1 1 auto;
   padding: 0 16px;
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
 }
 
 /* The primary action sits above the tabs and stays there. */
@@ -139,7 +140,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
 /* ---------- the week ---------- */
 .week {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-big);
-  padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
 }
 .week__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .week__done { font-size: 15px; font-weight: 600; }
@@ -167,7 +168,33 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
   font-size: 15px; font-weight: 700;
 }
 
-.clear { align-self: center; font-size: 13.5px; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
+.week__acts { display: flex; align-items: center; gap: 12px; }
+.week__acts .surprise { flex: 1 1 auto; }
+.clear { flex: none; font-size: 13.5px; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 10px 4px; }
+
+/* How many dinners, for how many — set once, so it reads as a line and opens
+   only when you want it. */
+.week__set {
+  display: flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: 13px; color: var(--muted); padding: 4px 0;
+}
+
+/* ---------- search ---------- */
+.search {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  padding: 0 14px; height: 46px;
+}
+.search svg { flex: none; color: var(--faint); }
+.search input {
+  flex: 1 1 0; min-width: 0; border: 0; background: none; outline: none;
+  /* 16px or iOS zooms the whole page when this takes focus. */
+  font-size: 16px;
+}
+.search input::-webkit-search-cancel-button { display: none; }
+.search button { flex: none; cursor: pointer; color: var(--faint); display: flex; padding: 6px; }
+
+.mealsplit { padding: 12px 4px 6px; }
 
 /* ---------- meals ---------- */
 .sectionhead { display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px; }
@@ -181,7 +208,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
 .meal__row { display: flex; align-items: stretch; }
 .meal__pick {
   flex: 1 1 auto; min-width: 0; cursor: pointer;
-  display: flex; align-items: center; gap: 14px; padding: 12px 0 12px 14px; text-align: left;
+  display: flex; align-items: center; gap: 13px; padding: 10px 0 10px 12px; text-align: left;
 }
 .meal__mark {
   width: 44px; height: 44px; flex: none; border-radius: 999px;
@@ -190,7 +217,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
 }
 .meal--in .meal__mark { background: var(--accent); border-color: var(--accent); color: #FFF; }
 .meal__text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.meal__name { font-family: var(--serif); font-size: 21px; line-height: 1.15; }
+.meal__name { font-size: 17px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
 .meal--in .meal__name { color: var(--accent-ink); }
 .meal__meta { font-size: 13px; color: var(--muted); }
 .meal--in .meal__meta { color: var(--accent-mute); }
@@ -307,7 +334,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
   display: flex; align-items: center; justify-content: center;
 }
 .result--bad .result__mark { background: var(--price-soft); color: var(--price); }
-.result__count { font-family: var(--serif); font-size: 26px; line-height: 1.1; }
+.result__count { font-size: 24px; font-weight: 800; line-height: 1.15; }
 .result__when { font-size: 13px; color: var(--muted); }
 
 .misses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
@@ -327,7 +354,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .9em; }
 .totals__row { display: flex; align-items: baseline; justify-content: space-between; font-size: 14.5px; }
 .totals__row--quiet { color: var(--muted); }
 .totals__rule { height: 1px; background: var(--hair); }
-.totals__big { font-family: var(--serif); font-size: 24px; color: var(--price); }
+.totals__big { font-size: 22px; font-weight: 800; color: var(--price); }
 .totals__note { font-size: 12px; color: var(--faint); }
 
 .notice { font-size: 13.5px; border-radius: 12px; padding: 11px 13px; background: var(--sunk); }

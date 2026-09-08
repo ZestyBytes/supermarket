@@ -93,10 +93,10 @@ export const Icon = {
       <path d="M9 6l6 6-6 6" />
     </Svg>
   ),
-  sparkle: (p: Props) => (
-    <Svg stroke={1.7} {...p}>
-      <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z" />
-      <path d="M18 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+  search: (p: Props) => (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
     </Svg>
   ),
   warning: (p: Props) => (
