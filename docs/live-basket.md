@@ -52,6 +52,12 @@ In your signed-in tab, open DevTools → Network, then:
 1. **Search for something** (say `chicken`). Find the request that returns the products — the one
    whose response contains the product titles. Right-click → **Copy** → **Copy as cURL**. Paste it
    into a file, `search.txt`, in the project folder.
+
+   On Windows you do not need to open an editor — copy the request, then in the project folder run:
+
+   ```
+   Get-Clipboard | Out-File -Encoding utf8 search.txt
+   ```
 2. **Open your basket.** Copy the request that returns its contents the same way, into
    `basket.txt`.
 3. **Add one cheap item to your basket by hand.** Copy that request into `add.txt`, and note the
