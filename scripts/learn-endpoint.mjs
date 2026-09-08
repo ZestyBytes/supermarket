@@ -106,7 +106,8 @@ if (kind === "basket-add") {
   if (payload) {
     const list = inferList(payload);
     if (!list) {
-      console.warn("Could not find a list of records in the response. Fill in `results` and `fields` by hand.");
+      console.warn("\nCould not find a list of records in the response.");
+      describeResponse(payload);
     } else {
       entry.results = list;
       entry.fields = inferFields(sampleFrom(payload, list), kind === "search" ? "search" : "basket");
@@ -137,7 +138,15 @@ async function replay(spec) {
   try {
     const response = await fetch(new URL(spec.path, spec.origin), {
       method: spec.method,
-      headers: { ...spec.headers, cookie: session.cookie, accept: "application/json" },
+      headers: {
+        ...spec.headers,
+        accept: "application/json",
+        // Whichever credentials the session holds. A token-authenticated API
+        // gets nothing useful back without this, and "nothing back" reads as
+        // "no products" rather than "not signed in".
+        ...(session.cookie ? { cookie: session.cookie } : {}),
+        ...(session.authorization ? { authorization: session.authorization } : {}),
+      },
       body: spec.body,
       redirect: "manual",
     });
@@ -156,6 +165,40 @@ async function replay(spec) {
     console.warn(`Could not replay the request: ${error.message}`);
     return null;
   }
+}
+
+/**
+ * Say what came back, when no products could be found in it.
+ *
+ * The two cases look identical from a failed inference — a shop with no
+ * matches, and an API that refused the request — so the difference has to be
+ * printed. GraphQL puts refusals in `errors` and still answers 200.
+ */
+function describeResponse(payload) {
+  const root = Array.isArray(payload) ? payload[0] : payload;
+  const errors = root?.errors ?? payload?.errors;
+
+  if (Array.isArray(errors) && errors.length > 0) {
+    console.warn("  The retailer returned errors, not data:");
+    for (const error of errors.slice(0, 3)) {
+      const code = error?.extensions?.code ? ` [${error.extensions.code}]` : "";
+      console.warn(`    ${String(error?.message ?? error).slice(0, 160)}${code}`);
+    }
+    if (/auth|token|forbidden|unauthor/i.test(JSON.stringify(errors).slice(0, 2000))) {
+      console.warn("  That reads like an authentication problem — re-capture the request and run this again.");
+    }
+    return;
+  }
+
+  console.warn(
+    `  Top-level shape: ${Array.isArray(payload) ? `array of ${payload.length}` : `object`}, keys: ${Object.keys(
+      root ?? {},
+    )
+      .slice(0, 8)
+      .join(", ")}`,
+  );
+  console.warn(`  First 300 characters: ${JSON.stringify(payload).slice(0, 300)}`);
+  console.warn("  Paste that line if you want help mapping it by hand.");
 }
 
 function sampleFrom(payload, listPath) {
