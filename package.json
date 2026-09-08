@@ -19,7 +19,8 @@
     "server:mock": "node server/index.mjs --mock",
     "tesco:import": "node scripts/import-session.mjs",
     "capture": "node scripts/capture-request.mjs",
-    "refresh": "node scripts/refresh.mjs"
+    "refresh": "node scripts/refresh.mjs",
+    "narrow": "node scripts/narrow-config.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -80,6 +80,20 @@ the expiry out of the token locally, so it can say "that expired 20 minutes ago"
 retailer saying "Unauthorized" later), and that you copied the right request — a retailer page
 fires several calls to the same endpoint, and only one of them is the product search.
 
+### If a capture batched several operations together
+
+A retailer can batch unrelated operations into one request — a basket read arriving alongside a
+mutation that changes it. What you need is already in the config; narrow it rather than capturing
+again:
+
+```
+npm run narrow -- basket                  list what the stored request holds
+npm run narrow -- basket GetBasket        keep just that one
+```
+
+A read that still carries a mutation after narrowing is refused, and so is a config that holds one:
+the app will not start against it. A read must never change anything.
+
 There is also a file-based route, `node scripts/learn-endpoint.mjs --kind search --term chicken
 --file search.txt`, paired with `npm run capture -- search.txt`. It works, but the gap between
 capturing and learning is usually enough for the token to die.
