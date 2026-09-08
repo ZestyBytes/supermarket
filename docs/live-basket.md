@@ -55,9 +55,13 @@ and learn in one step:
 npm run refresh -- search chicken
 ```
 
-It waits. Go to your signed-in tab, DevTools → Network → **Fetch/XHR**, search for `chicken`, find
-the request whose response contains the product titles (the DevTools search — the magnifying glass
-— finds it by product name), right-click → **Copy** → **Copy as cURL**, come back, press Enter.
+It waits. Go to your signed-in tab, DevTools → Network → **Fetch/XHR**, search for `chicken`, then
+right-click anywhere in the request list → **Copy** → **Copy all as cURL**, come back, press Enter.
+
+Copy all of them. A retailer page fires dozens of calls to the same endpoint — analytics,
+recommendations, taxonomy — and picking the product search out of that list is the tool's job: it
+reads the GraphQL operation name from each and takes the right one. If two could be the one, it
+names them and you re-run with the name appended.
 
 Then the same for the other two:
 

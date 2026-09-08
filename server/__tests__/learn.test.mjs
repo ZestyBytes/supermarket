@@ -7,6 +7,8 @@ import {
   looksLikeSearch,
   operationsIn,
   parseCurl,
+  pickRequest,
+  splitCurls,
   templatize,
   tokenLife,
 } from "../learn.mjs";
@@ -252,5 +254,39 @@ describe("operationsIn / looksLikeSearch", () => {
   it("finds every operation in a batched request", () => {
     const body = '[{"operationName":"Search"},{"operationName":"GetTaxonomy"}]';
     expect(operationsIn(body)).toEqual(["Search", "GetTaxonomy"]);
+  });
+});
+
+describe("splitCurls / pickRequest", () => {
+  const analytics = 'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"AnalyticsSellerIds\\"}]"';
+  const recommendations = 'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"GetRecommendations\\"}]"';
+  const search = 'curl --url "https://xapi.tesco.com/" --data-raw "[{\\"operationName\\":\\"Search\\",\\"variables\\":{\\"query\\":\\"chicken\\"}}]"';
+
+  it("splits a copy-all paste into commands", () => {
+    expect(splitCurls([analytics, recommendations, search].join("\n"))).toHaveLength(3);
+  });
+
+  it("finds the product search among the page's other traffic", () => {
+    // The whole point: nobody should have to identify this row by eye.
+    const picked = pickRequest([analytics, recommendations, search], "search");
+    expect(picked.ok).toBe(true);
+    expect(picked.operation).toBe("Search");
+    expect(picked.command).toBe(search);
+  });
+
+  it("lists what it saw when the search is not among them", () => {
+    const picked = pickRequest([analytics, recommendations], "search");
+    expect(picked.ok).toBe(false);
+    expect(picked.seen).toEqual(["AnalyticsSellerIds", "GetRecommendations"]);
+  });
+
+  it("honours an operation named explicitly", () => {
+    const picked = pickRequest([analytics, search], "search", "AnalyticsSellerIds");
+    expect(picked.command).toBe(analytics);
+  });
+
+  it("uses a lone request that carries no operation name at all", () => {
+    const rest = 'curl --url "https://shop.example/api/basket"';
+    expect(pickRequest([rest], "basket-read")).toMatchObject({ ok: true, operation: null });
   });
 });

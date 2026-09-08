@@ -350,3 +350,70 @@ export function operationsIn(body) {
 export function looksLikeSearch(operations) {
   return operations.some((name) => /^search$/i.test(name) || /productsearch|searchproducts/i.test(name));
 }
+
+/**
+ * Split a "Copy all as cURL" paste into individual commands.
+ *
+ * DevTools can copy every request in the list at once, which is far easier
+ * than identifying one row by eye among hundreds of analytics calls.
+ */
+export function splitCurls(text) {
+  return String(text)
+    .split(/\r?\n(?=curl\s)/)
+    .map((command) => command.trim())
+    .filter((command) => /^curl\s/.test(command));
+}
+
+const WANTED = {
+  search: [/^search$/i, /productsearch|searchproducts/i],
+  "basket-read": [/^(get)?(basket|trolley)$/i, /basket|trolley/i],
+  "basket-add": [/add.*(basket|trolley)|(basket|trolley).*add|updatebasket|changebasket/i],
+};
+
+/**
+ * Find the one request that does the job, among everything the page fired.
+ *
+ * A retailer page posts dozens of operations to the same endpoint —
+ * recommendations, analytics, taxonomy — so the operation name is what tells
+ * them apart. Returns the chosen command, or the candidates when the choice
+ * is not obvious enough to make automatically.
+ */
+export function pickRequest(commands, kind, preferred) {
+  const parsed = commands.map((command) => {
+    let request = null;
+    try {
+      request = parseCurl(command);
+    } catch {
+      /* not a request we can read */
+    }
+    return { command, request, operations: operationsIn(request?.body) };
+  });
+
+  const usable = parsed.filter((entry) => entry.request);
+  if (usable.length === 0) return { ok: false, reason: "none-parsed", seen: [] };
+  if (usable.length === 1 && usable[0].operations.length === 0) {
+    return { ok: true, command: usable[0].command, operation: null };
+  }
+
+  if (preferred) {
+    const exact = usable.find((entry) => entry.operations.some((name) => name.toLowerCase() === preferred.toLowerCase()));
+    if (exact) return { ok: true, command: exact.command, operation: preferred };
+    return { ok: false, reason: "no-such-operation", seen: names(usable) };
+  }
+
+  for (const pattern of WANTED[kind] ?? []) {
+    const matches = usable.filter((entry) => entry.operations.some((name) => pattern.test(name)));
+    if (matches.length === 1) {
+      return { ok: true, command: matches[0].command, operation: matches[0].operations.find((n) => pattern.test(n)) };
+    }
+    if (matches.length > 1) {
+      return { ok: false, reason: "ambiguous", seen: names(matches) };
+    }
+  }
+
+  return { ok: false, reason: "not-found", seen: names(usable) };
+}
+
+function names(entries) {
+  return [...new Set(entries.flatMap((entry) => entry.operations))].sort();
+}

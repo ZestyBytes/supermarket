@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline";
 import { readClipboard } from "../server/clipboard.mjs";
-import { classifyClipboard } from "../server/learn.mjs";
+import { classifyClipboard, pickRequest, splitCurls } from "../server/learn.mjs";
 import { learnEndpoint } from "../server/learn-endpoint.mjs";
 
 /**
@@ -18,7 +18,7 @@ import { learnEndpoint } from "../server/learn-endpoint.mjs";
  * Arguments are positional on purpose: npm eats --flags before a script sees
  * them, and this needs to work through npm.
  */
-const [kindArg, first, second] = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const [kindArg, first, second, third] = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 
 const KINDS = {
   search: { kind: "search", what: "a search for a product", needs: "the term you searched for" },
@@ -42,8 +42,11 @@ if (kindArg === "search" && !first) {
 console.log(`Ready to learn the request for ${chosen.what}.`);
 console.log("");
 console.log("  1. In your browser: DevTools → Network → Fetch/XHR");
-console.log(`  2. Do it once (so the request is fresh), then right-click it → Copy → Copy as cURL`);
-console.log("  3. Come straight back here and press Enter");
+console.log("  2. Do it once, so the request is fresh");
+console.log("  3. Right-click anywhere in the request list → Copy → Copy ALL as cURL");
+console.log("  4. Come straight back here and press Enter");
+console.log("");
+console.log("Copy all of them — picking the right row is this tool's job, not yours.");
 console.log("");
 console.log("The token in a captured request lasts about an hour, so do the action now rather than");
 console.log("reusing something copied earlier.");
@@ -61,13 +64,22 @@ try {
 const verdict = classifyClipboard(clipboard);
 if (verdict.kind !== "curl") {
   console.error(`\nThat is not a copied request — ${verdict.why}`);
-  console.error("Nothing was changed. Copy the request in DevTools and run this again.");
+  console.error("Nothing was changed. Copy the requests in DevTools and run this again.");
   process.exit(1);
 }
-console.log(`\nGot a ${verdict.method} request to ${verdict.host}.`);
+
+const commands = splitCurls(clipboard);
+console.log(`\nGot ${commands.length} request${commands.length === 1 ? "" : "s"} from the clipboard.`);
+
+const picked = pickRequest(commands, chosen.kind, third);
+if (!picked.ok) {
+  reportPickFailure(picked);
+  process.exit(1);
+}
+if (picked.operation) console.log(`Picked the "${picked.operation}" request.`);
 
 const outcome = await learnEndpoint({
-  text: clipboard,
+  text: picked.command,
   kind: chosen.kind,
   term: kindArg === "search" ? first : undefined,
   productId: kindArg === "add" ? first : undefined,
@@ -89,6 +101,26 @@ if (outcome.ok) {
   console.error("The endpoint was recorded, but the response could not be read automatically.");
   console.error("Paste the lines above and they can be mapped by hand.");
   process.exit(1);
+}
+
+function reportPickFailure(picked) {
+  if (picked.reason === "none-parsed") {
+    console.error("\nNone of that could be read as a request. Use Copy → Copy all as cURL.");
+    return;
+  }
+  if (picked.reason === "ambiguous") {
+    console.error(`\nSeveral requests could be the one: ${picked.seen.join(", ")}`);
+    console.error("Run it again naming the one you want, e.g.");
+    console.error(`  npm run refresh -- ${kindArg} ${first ?? ""} ${picked.seen[0]}`.replace(/\s+/g, " "));
+    return;
+  }
+  if (picked.reason === "no-such-operation") {
+    console.error(`\nNo request named that. The clipboard held: ${picked.seen.join(", ")}`);
+    return;
+  }
+  console.error(`\nNothing in the clipboard looks like ${chosen.what}.`);
+  console.error(`  The requests copied were: ${picked.seen.slice(0, 20).join(", ") || "(none named)"}`);
+  console.error("  Do the action in the browser first, then copy all as cURL.");
 }
 
 function waitForEnter() {
