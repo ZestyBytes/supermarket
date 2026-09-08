@@ -9,9 +9,12 @@ import { loadSession } from "../server/session.mjs";
  * In DevTools → Network, right-click the request → Copy → Copy as cURL, save
  * it to a file, then:
  *
- *   npm run retailer:learn -- --kind search      --term chicken     --file search.txt
- *   npm run retailer:learn -- --kind basket-read                    --file basket.txt
- *   npm run retailer:learn -- --kind basket-add  --product-id 12345 --qty 1 --file add.txt
+ *   node scripts/learn-endpoint.mjs --kind search      --term chicken     --file search.txt
+ *   node scripts/learn-endpoint.mjs --kind basket-read                    --file basket.txt
+ *   node scripts/learn-endpoint.mjs --kind basket-add  --product-id 12345 --qty 1 --file add.txt
+ *
+ * Run it with node, not `npm run`: npm parses unknown --flags as its own
+ * config and they never reach the script.
  *
  * Search and basket-read are replayed once with your imported session so the
  * response shape can be read from real data. basket-add is never replayed —
@@ -24,10 +27,23 @@ const kind = flag("--kind");
 const file = flag("--file");
 const dryRun = args.includes("--dry-run");
 
-if (!kind || !["search", "basket-read", "basket-add"].includes(kind)) {
-  fail("Pass --kind search | basket-read | basket-add");
+// npm swallows unknown --flags before the script sees them, so this must be
+// run directly with node rather than through `npm run`.
+if (!kind || !file) {
+  fail(
+    [
+      "Run this with node directly — npm eats the flags:",
+      "",
+      "  node scripts/learn-endpoint.mjs --kind search      --term chicken --file search.txt",
+      "  node scripts/learn-endpoint.mjs --kind basket-read                --file basket.txt",
+      "  node scripts/learn-endpoint.mjs --kind basket-add  --product-id 12345 --qty 1 --file add.txt",
+    ].join("\n"),
+  );
 }
-if (!file || !existsSync(file)) fail(`Pass --file <path to the copied cURL command>. Not found: ${file}`);
+if (!["search", "basket-read", "basket-add"].includes(kind)) {
+  fail(`--kind must be search, basket-read or basket-add (got "${kind}")`);
+}
+if (!existsSync(file)) fail(`No file at ${file}`);
 
 const request = parseCurl(readFileSync(file, "utf8"));
 const spec = templatize(request, {

@@ -27,19 +27,20 @@ saved cards, the lot. So:
 
 ### 1. Import the session
 
-```
-npm run tesco:import
-```
-
-Paste the `Cookie` header from any request to the retailer (DevTools → Network → a request →
-Request Headers → Cookie). Nothing is echoed as you paste. You should see **"Session imported
-locally."** and a cookie count.
-
-If another tool already stored a session, import from that file instead:
+Three ways, whichever suits:
 
 ```
-npm run tesco:import -- --from-file "C:\Users\you\.tesco\session.json"
+npm run tesco:import                                    paste at a hidden prompt
+npm run tesco:import -- "C:\Users\you\.tesco\session.json"    read a file another tool wrote
+Get-Clipboard | npm run tesco:import                    pipe it straight from the clipboard
 ```
+
+Note the plain path in the second one rather than a `--flag`. **npm parses unknown `--flags` as its
+own config and they never reach the script**, even after `--`; anything in this project that takes
+flags is run with `node` directly for that reason.
+
+You should see **"Session imported locally."** and a cookie count. If an older tool's session file
+exists, the prompt offers to read it rather than asking you to paste again.
 
 ### 2. Teach it the retailer's endpoints
 
@@ -66,10 +67,12 @@ In your signed-in tab, open DevTools → Network, then:
 Then:
 
 ```
-npm run retailer:learn -- --kind search      --term chicken --file search.txt
-npm run retailer:learn -- --kind basket-read                --file basket.txt
-npm run retailer:learn -- --kind basket-add  --product-id 254656732 --qty 1 --file add.txt
+node scripts/learn-endpoint.mjs --kind search      --term chicken --file search.txt
+node scripts/learn-endpoint.mjs --kind basket-read                --file basket.txt
+node scripts/learn-endpoint.mjs --kind basket-add  --product-id 254656732 --qty 1 --file add.txt
 ```
+
+(`node`, not `npm run` — see the note above about npm eating flags.)
 
 Each command strips the cookie out (it is never written to config), templates out the bits that
 vary, and — for search and basket-read — replays the request once with your imported session so it
