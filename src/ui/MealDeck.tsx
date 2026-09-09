@@ -67,10 +67,14 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
                 onClick={() => (selected ? onRemove(recipe.id) : onAdd(recipe.id))}
               >
                 <MealPhoto id={recipe.id} />
-                <span className="photo-time">
-                  <Icon name="clock" />
-                  {recipe.minutes}
-                </span>
+                {cost ? (
+                  <span className="photo-time photo-time--cost">{money(cost.each)}pp</span>
+                ) : (
+                  <span className="photo-time">
+                    <Icon name="clock" />
+                    {recipe.minutes}
+                  </span>
+                )}
                 <span className={`photo-check${selected ? ' is-on' : ''}`}>
                   <Icon name={selected ? 'check' : 'plus'} />
                 </span>
@@ -79,14 +83,7 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
                     {have.missing.length} missing
                   </span>
                 )}
-                <span className="photo-name">
-                  {recipe.name}
-                  {cost && (
-                    <span className="photo-cost">
-                      {money(cost.each)} a head
-                    </span>
-                  )}
-                </span>
+                <span className="photo-name">{recipe.name}</span>
               </button>
 
               <button
@@ -105,6 +102,11 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
                       Tesco has nothing for {have.missing.join(', ')}, but the rest can still be bought.
                     </p>
                   )}
+                  <p className="fresh-facts">
+                    <Icon name="clock" size={14} />
+                    {recipe.minutes} minutes
+                    {cost && ` · ${money(cost.total)} for ${servings}`}
+                  </p>
                   <p>{recipe.blurb}</p>
                   <ul>
                     {recipe.ingredients.map((line) => (

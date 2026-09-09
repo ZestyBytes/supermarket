@@ -346,7 +346,14 @@ button { touch-action:manipulation; }
   color:var(--ink); background:rgba(255,255,255,.42);
   backdrop-filter:blur(18px) saturate(1.35); -webkit-backdrop-filter:blur(18px) saturate(1.35);
   border-top:1px solid rgba(255,255,255,.35);
+  /* The card clips with overflow:hidden, but Chromium does not clip a
+     backdrop-filter element to a rounded ancestor, so the photograph leaked
+     past the curve as a dark wedge in each bottom corner. Curving the strip
+     itself is what actually holds it in. One pixel inside the card's 12, and
+     two when the selected border thickens. */
+  border-bottom-left-radius:11px; border-bottom-right-radius:11px;
 }
+.fresh-card.is-selected .photo-name { border-bottom-left-radius:10px; border-bottom-right-radius:10px; }
 .fresh-card.is-short .photo-name { color:var(--price-mute); }
 
 .card-info {
@@ -503,7 +510,9 @@ button { touch-action:manipulation; }
   font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap;
   color:rgba(244,242,237,.82); background:none; border:0;
 }
-.connection-dot { width:8px; height:8px; background:#4FBF7B; border-radius:50%; flex:none; }
+.connection-dot { width:9px; height:9px; background:#4FBF7B; border-radius:50%; flex:none; }
+/* No words to sit beside, so the padding is what makes it thumb-sized. */
+.connection-pill--quiet { padding:4px 10px; min-width:44px; justify-content:flex-end; }
 /* Never colour alone: the bad state says so in words as well, because on a
    dark bar a red dot and a green one are the same dot to a lot of people. */
 .connection-pill--bad { color:#FFC4B4; font-weight:650; }
@@ -606,7 +615,8 @@ button { touch-action:manipulation; }
   background-size: 200% 100%; animation: loading-sweep 1.5s ease-in-out infinite;
 }
 
-/* The price sits under the dinner's name, on the same frosted strip: it is
-   part of what you are choosing between, not a badge stuck on the picture. */
-.photo-name { display: flex; flex-direction: column; gap: 1px; }
-.photo-cost { font-size: 11.5px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+/* The price takes the badge the cooking time had. Both are worth knowing, but
+   only one decides anything, and two badges on one corner of a photograph is
+   one too many. The time is still in the card's details. */
+.photo-time--cost { padding: 3px 9px; }
+.fresh-facts { display: flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }

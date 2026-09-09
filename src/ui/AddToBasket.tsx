@@ -1,5 +1,4 @@
-import { money, poundsOnly } from "../domain/units";
-import { MINIMUM_BASKET, shortOfMinimum, UNDER_MINIMUM_CHARGE } from "../domain/minimumBasket";
+import { money } from "../domain/units";
 import type { BasketState } from "./useBasket";
 import { Icon } from "./Icon";
 
@@ -54,7 +53,6 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
             ? `All ${lines} in your ${state.mode==='mock'?'demo':'Tesco'} basket · ${money(state.total)}`
             : `${lines - failed} of ${lines} added. See the shopping list.`}
         </p>
-        <Minimum short={shortOfMinimum(state.projected)} bought />
       </div>
     );
   }
@@ -72,25 +70,6 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
           {missing === 1 ? "1 ingredient needs" : `${missing} ingredients need`} a check in your shopping list.
         </p>
       )}
-      <Minimum short={shortOfMinimum(state.projected)} />
     </div>
-  );
-}
-
-/**
- * Tesco's small-basket charge, said before you commit rather than at checkout.
- *
- * The fix for it is another dinner or a few cupboard things, which is work you
- * do here. Finding out at the till means coming back and starting again, so
- * this is worth a line even though it is the app reporting someone else's
- * rule. Once the basket has cleared the minimum it says nothing at all.
- */
-function Minimum({ short, bought }: { short: number; bought?: boolean }) {
-  if (short <= 0) return null;
-  return (
-    <p className="dock__note dock__note--money">
-      {money(short)} under Tesco's {poundsOnly(MINIMUM_BASKET)} minimum, so they add {poundsOnly(UNDER_MINIMUM_CHARGE)}.
-      {bought ? " Add more at Tesco to avoid it." : " One more dinner usually covers it."}
-    </p>
   );
 }
