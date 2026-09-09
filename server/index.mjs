@@ -4,7 +4,7 @@ import { createOpenSupermarketsAdapter, retailerError } from "./adapters/open-su
 import { createMockAdapter } from "./adapters/mock.mjs";
 import { createQueue } from "./queue.mjs";
 import { describeSession, forgetSession, loadSession } from "./session.mjs";
-import { removeFromBasket, removalSchema, submitBasket, submissionSchema } from "./basket.mjs";
+import { releaseStaleLock, removeFromBasket, removalSchema, submitBasket, submissionSchema } from "./basket.mjs";
 import { startConnectionReceiver } from "./connect.mjs";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -84,6 +84,9 @@ server.on("error", (error) => {
 });
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Supermarket API: http://127.0.0.1:${PORT} (${MOCK ? "mock" : "Open Supermarkets / Tesco"})`);
+  // We have just taken the port, so nothing of ours can be mid-write. A lock
+  // here belongs to a run that is over.
+  void releaseStaleLock();
   // Say it here rather than letting the first search fail with "signed out".
   if (!MOCK) {
     startConnectionReceiver();

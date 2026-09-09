@@ -103,6 +103,9 @@ export function useBasket(requirements: Requirement[]): BasketState {
 
   const key = requirements.map((r) => `${r.ingredient.id}:${r.qty}`).join("|");
 
+  // Lets the throttle retry above call the very function it lives inside.
+  const connectRef = useRef<() => Promise<void>>();
+
   const connect = useCallback(async () => {
     if(writing.current)return;
     clearSearchCache();
@@ -124,12 +127,22 @@ export function useBasket(requirements: Requirement[]): BasketState {
       const code = error instanceof RetailerError ? error.code : "RETAILER_ERROR";
       if (code === "OFFLINE") setPhase("offline");
       else if (code === "SESSION_EXPIRED" || code === "SESSION_MISSING") setPhase("disconnected");
-      else {
+      else if (code === "RATE_LIMITED") {
+        // Being throttled is not being signed out. Putting "Tesco is not
+        // connected" across the whole screen for it was both untrue and the
+        // worst possible moment to say it, because the answer is to wait and
+        // the screen was telling someone to go and reconnect.
+        setProblem(undefined);
+        setPhase("connecting");
+        setTimeout(() => { void connectRef.current?.(); }, 5000);
+      } else {
         setProblem(error instanceof Error ? error.message : String(error));
         setPhase("disconnected");
       }
     }
   }, []);
+
+  connectRef.current = connect;
 
   useEffect(() => {
     connect();

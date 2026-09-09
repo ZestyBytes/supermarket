@@ -311,13 +311,19 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, HEALTH_MS));
     if (stopping) break;
 
-    if (!app || app.exitCode !== null) {
-      await restart('Supermarket stopped. Restarting.');
-    } else if (Date.now() > settleUntil && !(await answering())) {
-      await restart('Supermarket is not answering. Restarting.');
-    } else if (Date.now() > settleUntil) {
-      // A spell of actually working clears the record.
+    // Serving is the only thing that counts, and the process handle is not it.
+    // On Windows npm runs behind a cmd.exe wrapper that exits while node keeps
+    // going, so "the child has an exit code" meant a healthy app was killed and
+    // restarted every thirty seconds: each restart re-read the Tesco basket,
+    // which is how a working setup talked itself into a rate limit.
+    if (await answering()) {
       failures = 0;
+    } else if (Date.now() > settleUntil) {
+      await restart(
+        app && app.exitCode === null
+          ? 'Supermarket is not answering. Restarting.'
+          : 'Supermarket stopped. Restarting.',
+      );
     }
 
     if (!stopping && Date.now() - lastCheck >= CHECK_MS) {

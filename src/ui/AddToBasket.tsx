@@ -33,12 +33,12 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
   }
 
   const missing = state.match?.review.length ?? 0;
+  const pending = state.items.filter((item) => item.state === "ready").length;
 
-  // Nothing at all while it works. Filling the basket is not a task the person
-  // is doing, so a progress bar for it is the app talking about itself. What
-  // is worth saying is what ended up in there, and that can wait until it has.
-  if (state.syncing || state.items.some((item) => item.state === "ready")) return null;
-
+  // Nothing to say until something is actually in the basket. No bar, no
+  // heading, no "filling your basket": that is the app narrating work nobody
+  // asked to watch. Once there is a real number it stays on screen and moves,
+  // which tells you the same thing without ever being about itself.
   if (state.inBasket === 0) return null;
 
   return (
@@ -46,7 +46,8 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
       <p className="done">
         <Icon name="check" size={18} />
         {state.inBasket} in your {state.mode === "mock" ? "demo" : "Tesco"} basket · {money(state.total)}
-        {missing > 0 && <span className="done__note">{missing} to pick up yourself</span>}
+        {pending > 0 && <span className="done__note">{pending} more going in</span>}
+        {pending === 0 && missing > 0 && <span className="done__note">{missing} to pick up yourself</span>}
       </p>
     </div>
   );

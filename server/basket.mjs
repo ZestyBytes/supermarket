@@ -47,6 +47,18 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
  */
 const RECEIPT_KEEP_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Clear a lock left by an earlier run of this server.
+ *
+ * Nothing of ours can be holding it: this process has just started and no
+ * other copy can have the port. Waiting two minutes to work that out meant a
+ * restart mid-write locked the basket out of its own app for two minutes,
+ * which with anything restarting the app is most of the time.
+ */
+export async function releaseStaleLock(directory = join(homedir(), '.supermarket', 'attempts')) {
+  await unlink(join(directory, 'write.lock')).catch(() => {});
+}
+
 async function forgetOldReceipts(directory) {
   try {
     const names = await readdir(directory);
