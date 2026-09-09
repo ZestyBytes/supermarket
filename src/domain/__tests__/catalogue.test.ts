@@ -3,6 +3,7 @@ import { INGREDIENTS } from "../../data/ingredients";
 import { PRODUCTS } from "../../data/products";
 import { RECIPES } from "../../data/recipes";
 import { toCanonical } from "../units";
+import {FAVOURITE_INGREDIENTS} from '../../data/favouriteIngredients';
 
 const ingredientIds = new Set(INGREDIENTS.map((i) => i.id));
 const stocked = new Set(PRODUCTS.map((p) => p.ingredientId));
@@ -14,8 +15,9 @@ describe("catalogue integrity", () => {
     expect(new Set(RECIPES.map((r) => r.id)).size).toBe(RECIPES.length);
   });
 
-  it("stocks a product for every ingredient", () => {
-    const missing = INGREDIENTS.filter((i) => !stocked.has(i.id)).map((i) => i.id);
+  it("retains demo stock for the original ingredients; new favourites use live search", () => {
+    const liveOnly = new Set(FAVOURITE_INGREDIENTS.map(i=>i.id));
+    const missing = INGREDIENTS.filter((i) => !liveOnly.has(i.id) && !stocked.has(i.id)).map((i) => i.id);
     expect(missing).toEqual([]);
   });
 
