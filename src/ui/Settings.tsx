@@ -76,6 +76,19 @@ export function Settings({ state, servings, wanted, onServings, onWanted }: Prop
         <p className="note">Changing who you are cooking for updates the amounts for every dinner you have picked.</p>
       </section>
 
+      <section className="panel">
+        <h2 className="panel__head">
+          <span className="label">This copy</span>
+        </h2>
+        <p className="note note--version">
+          Version <b>{__BUILD__}</b>, at <b>{location.host}</b>.
+        </p>
+        <p className="note">
+          One computer answers to more than one address, and a phone keeps the app separately for
+          each one. If this version is behind another device, pull down to refresh this page.
+        </p>
+      </section>
+
     </>
   );
 }
