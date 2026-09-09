@@ -203,10 +203,10 @@ function bad(status: ItemStatus) {
  */
 function aside(requirement: Requirement, status?: ItemStatus): string | undefined {
   if (!status) return undefined;
-  if (status.state === "checking") return "Checking Tesco";
+  if (status.state === "checking") return status.why??"Checking Tesco";
   // We know our searches came back empty. We do not know Tesco's whole shelf,
   // and saying so as though we did is a claim the app cannot support.
-  if (status.state === "missing") return "We could not find this at Tesco";
+  if (status.state === "missing") return status.why??"We could not find this at Tesco";
   if (status.state === "failed") return `Not added. ${status.why ?? ""}`.trim();
   // This one survives being bought, because it is the thing you would want to
   // know when the shopping turns up and it is not what you asked for.

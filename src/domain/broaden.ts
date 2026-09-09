@@ -34,7 +34,7 @@ const BROADER: Record<string, string> = {
   tortilla: "tortilla wraps",
   peas: "peas",
   yoghurt: "natural yoghurt",
-  cheese: "cheddar",
+  cheddar: "cheddar",
 };
 
 /**

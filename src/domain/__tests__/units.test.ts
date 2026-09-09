@@ -6,6 +6,9 @@ const potato: Ingredient = { id: "potato", name: "Potatoes", unit: "g", aisle: "
 const oil: Ingredient = { id: "olive-oil", name: "Olive oil", unit: "ml", aisle: "cupboard" };
 const onion: Ingredient = { id: "onion", name: "Onions", unit: "each", aisle: "produce" };
 const garlic: Ingredient = { ...onion, id: "garlic", name: "Garlic", countNoun: "clove" };
+it.each([['Limes','1 lime'],['Sausages','1 sausage'],['Tomatoes','1 tomato'],['Stock cubes','1 stock cube']])('formats a single %s without truncating its name',(name,result)=>{
+ expect(formatQty(1,{...onion,name})).toBe(result);
+});
 
 describe("toCanonical", () => {
   it("converts kilos to grams", () => {

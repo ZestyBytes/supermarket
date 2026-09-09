@@ -112,12 +112,14 @@ function Empty({ state }: { state: BasketState }) {
   const [asking, setAsking] = useState(false);
   const lines = state.inBasket + state.theirs.length;
 
+  if(!state.connectedAt||state.phase==='offline'||state.phase==='disconnected') return <p className="note">Connect Tesco to read your basket.</p>;
+
   if (lines === 0) return <p className="note">Nothing in it.</p>;
 
   if (!asking) {
     return (
       <>
-        <button className="wide wide--undo" type="button" onClick={() => setAsking(true)}>
+        <>{state.problem && <p className="note note--warn" role="alert">{state.problem}</p>}</><button disabled={state.syncing || state.phase === "adding"} className="wide wide--undo" type="button" onClick={() => setAsking(true)}>
           Empty the whole basket
         </button>
         <p className="note">
@@ -170,3 +172,4 @@ function describe(state: BasketState): { tone: "good" | "bad" | "wait"; headline
       };
   }
 }
+

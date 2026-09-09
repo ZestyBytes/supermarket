@@ -11,6 +11,7 @@ import {
 } from "../domain/retailerClient";
 import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
 import { broaderTermFor } from "../domain/broaden";
+import {suitableVarieties} from '../domain/variety';
 import { reconcileBasket, settled } from "../domain/reconcileBasket";
 import { newAttemptId } from "../domain/ids";
 import type { Requirement } from "../domain/types";
@@ -95,6 +96,9 @@ export function useBasket(requirements: Requirement[]): BasketState {
   // out from under the first is how "another basket update is running" happens
   // to a person who did nothing but pick a second dinner.
   const busy = useRef(false);
+  // Empty is an explicit user action. Do not immediately undo it by auto-syncing.
+  const pausedAfterEmpty=useRef(false);
+  const previousPlan=useRef('');
   // Bumped when a sync fails, purely to give the effect a reason to run again.
   const [attemptNo, setAttemptNo] = useState(0);
   // Everything this app has put in the basket, kept for the life of the page.
@@ -104,6 +108,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
   const attempt = useRef(newAttemptId());
 
   const key = requirements.map((r) => `${r.ingredient.id}:${r.qty}`).join("|");
+  if(previousPlan.current!==key){previousPlan.current=key;pausedAfterEmpty.current=false;}
 
   // Lets the throttle retry above call the very function it lives inside.
   const connectRef = useRef<() => Promise<void>>();
@@ -181,7 +186,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
           for (const requirement of group) {
             const answer = answers.find((a) => a.query === searchTermFor(requirement));
             if (!answer || answer.error) failed.add(requirement.ingredient.id);
-            found.set(requirement.ingredient.id, answer?.results ?? []);
+            found.set(requirement.ingredient.id, suitableVarieties(requirement.ingredient.id,answer?.results ?? []));
           }
           const done=Math.min(offset+4,requirements.length);
           setProgress({done,total:requirements.length});
@@ -213,7 +218,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
             for (const requirement of group) {
               const answer = answers.find((a) => a.query === broaderTermFor(requirement));
               if (!answer || answer.error || answer.results.length === 0) continue;
-              found.set(requirement.ingredient.id, answer.results);
+              found.set(requirement.ingredient.id, suitableVarieties(requirement.ingredient.id,answer.results));
               widened.add(requirement.ingredient.id);
             }
           }
@@ -264,6 +269,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
     try {
       const result = await removeFromBasket(newAttemptId(), productIds);
       setBasket(result.basket);
+      if(result.failed.length) setProblem(`${result.failed.length} basket items could not be removed. Check Tesco before trying again.`);
       const gone = new Set(result.basket.items.map((item) => item.id));
       for (const id of mine.current) if (!gone.has(id)) mine.current.delete(id);
       setPhase("armed");
@@ -274,7 +280,9 @@ export function useBasket(requirements: Requirement[]): BasketState {
   }, [match]);
 
   const empty = useCallback(async () => {
-    await unwind(undefined);
+    if(busy.current||writing.current)return;
+    pausedAfterEmpty.current=true;
+    busy.current=true; setSyncing(true); try { await unwind(undefined); } finally { busy.current=false; setSyncing(false); }
   }, [unwind]);
 
   /**
@@ -292,7 +300,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
    * Waiting for the picking to stop turns all of it into one round.
    */
   const sync = useCallback(async () => {
-    if (busy.current) return;
+    if (busy.current||pausedAfterEmpty.current) return;
     const change = reconcileBasket(match, basket, mine.current);
     if (settled(change)) return;
 
@@ -353,10 +361,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
   // the basket cannot.
   const items: ItemStatus[] = requirements.map((requirement) => {
     const id = requirement.ingredient.id;
+    if(phase==='offline'||phase==='disconnected')return {ingredientId:id,state:'checking',why:'Reconnect Tesco to check products'};
     const choice = match?.choices.find((c) => c.requirement.ingredient.id === id);
     const missing = match?.review.some((r) => r.requirement.ingredient.id === id);
 
-    if (missing) return { ingredientId: id, state: "missing" };
+    if (missing) return { ingredientId: id, state: "missing",why:match?.review.find(r=>r.requirement.ingredient.id===id)?.reason==='search-failed'?'Search did not finish. Check the Tesco connection.':'No suitable match found at Tesco'};
     if (!choice) return { ingredientId: id, state: "checking" };
 
     const inBasket = held.get(choice.product.id) ?? 0;
@@ -391,3 +400,4 @@ export function useBasket(requirements: Requirement[]): BasketState {
     sendNow: () => { void sync(); },
   };
 }
+

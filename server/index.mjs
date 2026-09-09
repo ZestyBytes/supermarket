@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { createServer } from "node:http";
 import { z } from "zod";
 import { createOpenSupermarketsAdapter, retailerError } from "./adapters/open-supermarkets.mjs";
@@ -9,6 +11,7 @@ import { startConnectionReceiver } from "./connect.mjs";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const MOCK = process.argv.includes("--mock") || process.env.RETAILER === "mock";
+const attemptsDirectory = MOCK ? join(homedir(), '.supermarket', 'mock-attempts') : undefined;
 const queue = createQueue({ minIntervalMs: 350, retries: 1 });
 const client = MOCK ? createMockAdapter() : createOpenSupermarketsAdapter();
 // retailer.config.json and captured request bodies are deliberately never loaded.
@@ -36,14 +39,14 @@ const routes = {
   "POST /api/basket": async (_url, body) => {
     const input = submissionSchema.parse(body);
     // Queue the ENTIRE transaction; never retry basket mutations.
-    return queue(() => submitBasket(client, input), { retryable: () => false });
+    return queue(() => submitBasket(client, input, attemptsDirectory), { retryable: () => false });
   },
   "POST /api/basket/remove": async (_url, body) => {
     const input = removalSchema.parse(body);
     // Same rule as adding: the whole transaction is queued, and never retried
     // from out here, because it does its own retrying where it can tell what
     // has already happened.
-    return queue(() => removeFromBasket(client, input), { retryable: () => false });
+    return queue(() => removeFromBasket(client, input, attemptsDirectory), { retryable: () => false });
   },
 };
 
@@ -86,7 +89,7 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(`Supermarket API: http://127.0.0.1:${PORT} (${MOCK ? "mock" : "Open Supermarkets / Tesco"})`);
   // We have just taken the port, so nothing of ours can be mid-write. A lock
   // here belongs to a run that is over.
-  void releaseStaleLock();
+  void releaseStaleLock(attemptsDirectory);
   // Say it here rather than letting the first search fail with "signed out".
   if (!MOCK) {
     startConnectionReceiver();
@@ -100,3 +103,4 @@ async function readJson(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 64000) throw retailerError("BAD_REQUEST", "Request too large."); chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { throw retailerError("BAD_REQUEST", "Invalid JSON."); }
 }
+

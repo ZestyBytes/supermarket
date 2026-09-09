@@ -19,6 +19,24 @@ beforeEach(()=>{
  vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[]})));
 });
 afterEach(()=>{if(view)act(()=>view.unmount());vi.useRealTimers();});
+it('shows reconnection instructions without searching when Tesco is signed out',async()=>{
+ vi.mocked(client.getSession).mockResolvedValue({mode:'live',session:{present:false}});
+ await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
+ expect(state.phase).toBe('disconnected');
+ expect(state.items[0].why).toContain('Reconnect Tesco');
+ expect(client.searchBatch).not.toHaveBeenCalled();
+});
+it('does not automatically refill a basket after the user empties it',async()=>{
+ vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
+ vi.mocked(client.readBasket).mockResolvedValue({total:1,items:[{id:'123',title:'Onions',qty:1,price:1}]});
+ vi.mocked(client.removeFromBasket).mockResolvedValue({removed:['123'],failed:[],basket:{total:0,items:[]}});
+ await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
+ await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
+ await act(async()=>{await state.empty();});
+ await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+ expect(client.removeFromBasket).toHaveBeenCalledTimes(1);
+ expect(client.addToBasket).not.toHaveBeenCalled();
+});
 it('finishes matching without restarting when its phase changes',async()=>{
  await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
  await act(async()=>{await vi.advanceTimersByTimeAsync(200);});

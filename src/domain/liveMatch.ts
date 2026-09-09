@@ -1,6 +1,7 @@
 import { parsePackSize } from "./packsize";
 import { packsFor } from "./match";
 import type { Requirement } from "./types";
+import {suitableVarieties,preferredVarieties,isAlternativeVariety} from './variety';
 
 /** A product as a retailer's search returns it. */
 export interface RetailerProduct {
@@ -83,13 +84,14 @@ export function chooseLiveProducts(
       review.push({ requirement, reason: 'search-failed', candidates: [] });
       continue;
     }
-    const candidates = results.get(requirement.ingredient.id) ?? [];
+    const candidates = suitableVarieties(requirement.ingredient.id,results.get(requirement.ingredient.id) ?? []);
     if (candidates.length === 0) {
       review.push({ requirement, reason: "no-results", candidates });
       continue;
     }
 
-    const costed = candidates
+    const preferred=preferredVarieties(requirement.ingredient.id,candidates);
+    const costed = preferred
       .filter(product => relevantProduct(requirement.ingredient.id, product.title))
       .map((product) => {
         const size = parsePackSize(product.size ? `${product.title} ${product.size}` : product.title);
@@ -109,8 +111,8 @@ export function chooseLiveProducts(
 
     if (costed.length === 0) {
       // Nothing we could measure, so buy the cheapest sensible one and move on.
-      const relevant = candidates.filter((product) => relevantProduct(requirement.ingredient.id, product.title));
-      const usable = (relevant.length > 0 ? relevant : candidates).slice().sort((a, b) => a.price - b.price);
+      const relevant = preferred.filter((product) => relevantProduct(requirement.ingredient.id, product.title));
+      const usable = (relevant.length > 0 ? relevant : preferred).slice().sort((a, b) => a.price - b.price);
       const [pick, ...others] = usable;
       const readable = parsePackSize(pick.size ? `${pick.title} ${pick.size}` : pick.title);
 
@@ -124,7 +126,7 @@ export function chooseLiveProducts(
         alternatives: others,
         candidates,
         assumed: readable ? "unit" : "size",
-        instead: widened.has(requirement.ingredient.id) ? requirement.ingredient.name : undefined,
+        instead: isAlternativeVariety(requirement.ingredient.id,pick.title,widened.has(requirement.ingredient.id)) ? requirement.ingredient.name : undefined,
       });
       continue;
     }
@@ -139,7 +141,7 @@ export function chooseLiveProducts(
       surplus: best.surplus,
       alternatives: rest.map((entry) => entry.product),
       candidates,
-      instead: widened.has(requirement.ingredient.id) ? requirement.ingredient.name : undefined,
+      instead: isAlternativeVariety(requirement.ingredient.id,best.product.title,widened.has(requirement.ingredient.id)) ? requirement.ingredient.name : undefined,
     });
   }
 
@@ -211,7 +213,7 @@ export function swapChoice(choice: LiveChoice, product: RetailerProduct): LiveCh
       alternatives: others,
       candidates: choice.candidates,
       assumed: size ? "unit" : "size",
-      instead: choice.instead,
+      instead: isAlternativeVariety(requirement.ingredient.id, product.title, Boolean(choice.instead)) ? requirement.ingredient.name : undefined,
     };
   }
 
@@ -225,6 +227,7 @@ export function swapChoice(choice: LiveChoice, product: RetailerProduct): LiveCh
     surplus: Math.round((packs * size.qty - requirement.qty) * 100) / 100,
     alternatives: others,
     candidates: choice.candidates,
-    instead: choice.instead,
+    instead: isAlternativeVariety(requirement.ingredient.id, product.title, Boolean(choice.instead)) ? requirement.ingredient.name : undefined,
   };
 }
+

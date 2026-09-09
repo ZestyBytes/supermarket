@@ -58,7 +58,9 @@ function trim(n: number): string {
   return String(Math.round(n * 100) / 100);
 }
 function singular(noun: string): string {
-  return noun.endsWith("es") ? noun.slice(0, -2) : noun.endsWith("s") ? noun.slice(0, -1) : noun;
+  if (/potatoes$|tomatoes$|ches$|shes$|xes$|sses$/i.test(noun)) return noun.slice(0,-2);
+  if (/ies$/i.test(noun)) return `${noun.slice(0,-3)}y`;
+  return noun.endsWith("s") ? noun.slice(0,-1) : noun;
 }
 function plural(noun: string): string {
   if (noun.endsWith("s")) return noun;
