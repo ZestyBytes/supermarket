@@ -33,6 +33,14 @@ const glyphs: Record<string, string> = {
   arrow: "m9 5 7 7-7 7",
   clock: "M12 7v5l3 2",
   search: "m16 16 5 5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
+  // An unknown name silently draws a plus, so anything used anywhere in the
+  // app has to be here — a "Retry" button with a + on it is how that shows up.
+  down: "m6 9 6 6 6-6",
+  up: "m18 15-6-6-6 6",
+  cross: "M18 6 6 18M6 6l12 12",
+  retry: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
+  info: "M12 12v5M12 8h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0",
+  warning: "M12 9v4M12 17h.01M10.3 3.9 2.4 17.6a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
 };
 
 function IconGlyph({ name, ...props }: Props & { name?: string }) {

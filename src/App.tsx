@@ -8,14 +8,16 @@ import { usePersistentState } from "./ui/usePersistentState";
 import { WeekBar } from "./ui/WeekBar";
 import { MealDeck } from "./ui/MealDeck";
 import { useStock } from "./ui/useStock";
+import { useBasket } from "./ui/useBasket";
 import { HaveList } from "./ui/HaveList";
-import { LivePanel } from "./ui/LivePanel";
+import { Connection } from "./ui/Connection";
+import { AddToBasket } from "./ui/AddToBasket";
 import { Icon } from "./ui/Icon";
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
 const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
 
-type Tab = "meals" | "list" | "shop";
+type Tab = "meals" | "list";
 
 export function App() {
   const [plan, setPlan] = usePersistentState<PlannedMeal[]>("supermarket.plan", []);
@@ -24,13 +26,14 @@ export function App() {
   const [wanted, setWanted] = usePersistentState<number>("supermarket.wanted", 5);
   const [tab, setTab] = useState<Tab>("meals");
 
-  // Asked in the background while you browse, so choosing a dinner and knowing
-  // whether it can be bought are the same moment.
-  const { stock } = useStock(RECIPES, INGREDIENTS);
-
   const pantry = useMemo(() => new Set(pantryIds), [pantryIds]);
   const requirements = useMemo(() => consolidate(plan, CATALOGUE), [plan]);
   const toBuy = useMemo(() => requirements.filter((r) => !pantry.has(r.ingredient.id)), [requirements, pantry]);
+
+  // Two background jobs, both started for you: what Tesco stocks at all, and
+  // what it would sell you for this week in particular.
+  const { stock } = useStock(RECIPES, INGREDIENTS);
+  const basket = useBasket(toBuy);
 
   function addMeal(recipeId: string) {
     if (!RECIPES.some((r) => r.id === recipeId)) return;
@@ -53,98 +56,61 @@ export function App() {
       setPlan(surpriseWeek(RECIPES, wanted, servings));
       return;
     }
-    const extra = surpriseWeek(
-      RECIPES.filter((r) => !already.has(r.id)),
-      short,
-      servings,
-    );
-    setPlan((current) => [...current, ...extra]);
+    setPlan((current) => [
+      ...current,
+      ...surpriseWeek(RECIPES.filter((r) => !already.has(r.id)), short, servings),
+    ]);
   }
 
   return (
     <div>
+      <Connection state={basket} />
+
       {tab === "meals" && (
-        <>
-          <main className="sheet">
-            <WeekBar
-              plan={plan}
-              recipes={RECIPES}
-              servings={servings}
-              wanted={wanted}
-              onWanted={setWanted}
-              onServings={setServingsEverywhere}
-              onSurprise={surprise}
-              onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
-            />
+        <main className="sheet">
+          <WeekBar
+            plan={plan}
+            recipes={RECIPES}
+            servings={servings}
+            wanted={wanted}
+            onWanted={setWanted}
+            onServings={setServingsEverywhere}
+            onSurprise={surprise}
+            onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
+          />
 
-            <MealDeck
-              recipes={RECIPES}
-              plan={plan}
-              ingredients={INGREDIENTS}
-              onAdd={addMeal}
-              onRemove={removeRecipe}
-              stock={stock}
-            />
-
-            <div className="act">
-              <button className="go" type="button" disabled={plan.length === 0} onClick={() => setTab("list")}>
-                See shopping list
-                {toBuy.length > 0 && <span className="go__note">{toBuy.length} items</span>}
-              </button>
-            </div>
-          </main>
-        </>
+          <MealDeck
+            recipes={RECIPES}
+            plan={plan}
+            ingredients={INGREDIENTS}
+            onAdd={addMeal}
+            onRemove={removeRecipe}
+            stock={stock}
+          />
+        </main>
       )}
 
       {tab === "list" && (
-        <>
-          <main className="sheet">
-            <HaveList
-              requirements={requirements}
-              pantry={pantry}
-              onToggle={(id) =>
-                setPantryIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
-              }
-            />
-
-            <div className="act">
-              <button className="go" type="button" disabled={toBuy.length === 0} onClick={() => setTab("shop")}>
-                Find these at Tesco
-              </button>
-            </div>
-          </main>
-        </>
-      )}
-
-      {tab === "shop" && (
-        <LivePanel
-          key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])}
-          requirements={toBuy}
-        />
+        <main className="sheet">
+          <HaveList
+            requirements={requirements}
+            pantry={pantry}
+            statuses={basket.items}
+            theirs={basket.theirs}
+            onToggle={(id) =>
+              setPantryIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
+            }
+          />
+        </main>
       )}
 
       <div className="pad" />
 
-      {tab !== "shop" && (
-        <div className="fresh-next">
-          <button
-            type="button"
-            disabled={plan.length === 0}
-            onClick={() => setTab(tab === "meals" ? "list" : "shop")}
-          >
-            <span>
-              <strong>{tab === "meals" ? "Review ingredients" : "Review Tesco products"}</strong>
-              <small>{tab === "meals" ? `${plan.length} dinners selected` : `${toBuy.length} ingredients to buy`}</small>
-            </span>
-            <Icon name="arrow" />
-          </button>
-        </div>
-      )}
+      <AddToBasket state={basket} meals={plan.length} />
 
       <nav className="tabs" aria-label="Sections">
         <TabButton id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
-        <TabButton id="list" now={tab} go={setTab} icon="list" label="Ingredients" />
-        <TabButton id="shop" now={tab} go={setTab} icon="shop" label="Tesco" />
+        <TabButton id="list" now={tab} go={setTab} icon="list" label="Shopping list" note={toBuy.length || undefined} />
       </nav>
     </div>
   );
@@ -157,26 +123,21 @@ function TabButton({
   icon,
   label,
   note,
-  children,
 }: {
   id: Tab;
   now: Tab;
   go: (tab: Tab) => void;
-  icon: "meals" | "list" | "shop";
+  icon: "meals" | "list";
   label: string;
   note?: number;
-  children?: React.ReactNode;
 }) {
   return (
     <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
-      {children ?? (
-        <span className="tab__icon" aria-hidden="true">
-          <Icon name={icon} />
-        </span>
-      )}
+      <span className="tab__icon" aria-hidden="true">
+        <Icon name={icon} />
+      </span>
       <span className="tab__label">{label}</span>
       {note != null && <span className="tab__note">{note}</span>}
     </button>
   );
 }
-
