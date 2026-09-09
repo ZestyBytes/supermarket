@@ -20,7 +20,7 @@ describe("talking to Tesco from the browser", () => {
 
     await tesco.readBasket();
 
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = (fetch.mock.calls as unknown as Array<[string, RequestInit]>)[0];
     expect(url).toBe("https://xapi.tesco.com/");
     // The whole point: the session is the browser's, never copied into the app.
     expect(init.credentials).toBe("include");
@@ -59,7 +59,8 @@ describe("talking to Tesco from the browser", () => {
 
     await tesco.removeItem("tpnc-1");
 
-    const last = JSON.parse((fetch.mock.calls.at(-1)![1] as RequestInit).body as string);
+    const calls = fetch.mock.calls as unknown as Array<[string, RequestInit]>;
+    const last = JSON.parse(calls[calls.length - 1][1].body as string);
     expect(last[0].operationName).toBe("UpdateBasket");
     expect(last[0].variables.items[0]).toMatchObject({ id: "tpnc-1", newValue: 0 });
     expect(last[0].variables.orderId).toBe("trn:tesco:order:1");
