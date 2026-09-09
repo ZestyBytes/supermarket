@@ -23,7 +23,8 @@
     "refresh": "node scripts/connect-tesco.mjs",
     "connect": "node scripts/connect-tesco.mjs",
     "narrow": "node scripts/narrow-config.mjs",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "keep": "node scripts/keep-running.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

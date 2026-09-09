@@ -6,7 +6,7 @@ UK meal planning that ends in one grocery basket.
 products → add the lot to the basket.**
 
 Plan Spaghetti Bolognese, Chicken Fajitas, Cottage Pie, Chicken Curry and Salmon & Potatoes and
-the app works out that four of those want onions — 6 in total — and buys one 1kg bag, not four
+the app works out that four of those want onions, 6 in total, and buys one 1kg bag, not four
 separate lines.
 
 ## Run it
@@ -21,8 +21,8 @@ npm start
 
 Connect uses the local Chrome helper in your usual Chrome profile. Follow [the one-time setup](docs/live-basket.md); no DevTools or cookie copying is required. Then open **http://127.0.0.1:5173**. `npm start` runs both the API and UI.
 
-> **Windows PowerShell:** don't chain these with `&&`. Windows PowerShell 5.1 — the blue one that
-> ships with Windows — treats `&&` as a syntax error and runs nothing, so the dev server never
+> **Windows PowerShell:** don't chain these with `&&`. Windows PowerShell 5.1, the blue one that
+> ships with Windows, treats `&&` as a syntax error and runs nothing, so the dev server never
 > starts and the browser shows `ERR_CONNECTION_REFUSED`. One command per line works everywhere;
 > `;` chains them in any PowerShell, and `&&` works in PowerShell 7+ and in cmd, bash and zsh.
 
@@ -37,17 +37,17 @@ At home, one command:
 npm run start:host
 ```
 
-It prints two addresses — the computer's network address, and its name (`http://your-pc.local:5173`),
+It prints two addresses: the computer's network address, and its name (`http://your-pc.local:5173`),
 which keeps working when the router hands out a different address. Open either on the phone, then
 **Share → Add to Home Screen**: it installs as an app with its own icon, so there is no address or
 port to type again.
 
 Everything works there, including the real Tesco basket, because the phone is talking to your own
-computer. Only the page is offered to the network — the API stays on loopback and refuses anything
+computer. Only the page is offered to the network. The API stays on loopback and refuses anything
 that is not local, with the dev server proxy on the same machine as the only way to it.
 
 There is also a hosted copy on GitHub Pages, published from `main`:
-**https://zestybytes.github.io/supermarket/** — useful for looking at the planner away from home, but
+**https://zestybytes.github.io/supermarket/**, useful for looking at the planner away from home, but
 it cannot touch your Tesco basket, because your session never leaves your computer. It says so
 rather than offering a button that cannot work.
 
@@ -61,11 +61,33 @@ Puts **Supermarket** on the desktop. Double-click it and both halves start and t
 also clears a server left running from last time, which is otherwise the usual reason it will not
 start.
 
+### Leaving it running
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
+```
+
+Supermarket now starts when you log in and looks after itself. It puts the app back if it stops or
+stops answering, and every ten minutes it asks GitHub whether there is a newer version: if there is,
+it pulls, installs when the dependencies have changed, and restarts on the same ports, so an icon
+saved to a phone's home screen keeps working. If anything in the folder has been edited it says so
+and keeps running what you have rather than pulling over the top of it. Repeated failures back off
+rather than hammering.
+
+`Start-ScheduledTask -TaskName Supermarket` runs it now, `Stop-ScheduledTask` stops it, and
+`-Remove` on the same script takes it off. To watch it work instead, double-click
+**keep-supermarket-running.cmd** and leave the window open.
+
+It deliberately leaves the Tesco connection alone, because the extension already handles that: open
+the Supermarket extension in Chrome and tick **Stay connected**, and it mints a fresh token every
+half hour without opening a window. That part needs Chrome running and your Tesco sign-in still
+valid; if Tesco signs you out completely, no amount of automation can sign you back in.
+
 ### If the page will not load
 
 | What you see | Cause | Fix |
 | --- | --- | --- |
-| `ERR_CONNECTION_REFUSED` | The dev server is not running | Check the terminal still shows `VITE ready` — it stays running until you press Ctrl+C |
+| `ERR_CONNECTION_REFUSED` | The dev server is not running | Check the terminal still shows `VITE ready`. It stays running until you press Ctrl+C |
 | `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1 | Run the commands on separate lines |
 | `Port 5173 is in use` | Another app instance has the port | Stop the previous instance before running npm start |
 | `Unsupported engine` on install | Node is older than 20 | Install a current Node from nodejs.org |
@@ -108,7 +130,7 @@ npm start
 ```
 
 `npm run server:mock` runs the same flow against a built-in mock shop, with no real account
-involved — worth doing first.
+involved, so it is worth doing first.
 
 Setup, the security rules that come with handling a session cookie, and what to do when it
 expires: **[docs/live-basket.md](docs/live-basket.md)**. The short version:
@@ -119,13 +141,13 @@ expires: **[docs/live-basket.md](docs/live-basket.md)**. The short version:
 - Reads can refresh a rejected session through the saved Chrome profile. If interaction is required, run npm run connect. A future token expiry does not prove the session works.
 - Basket attempts are journalled and writes are not retried automatically. No checkout or payment is performed.
 - The app always **reads the basket back** after adding, and shows the retailer's own total
-  separately from our estimate — theirs includes delivery and offers, and is the one that counts.
+  separately from our estimate: theirs includes delivery and offers, and is the one that counts.
 
 ## What is not built
 
 - **Checkout.** Nothing pays for anything, by design.
 - Other live retailers; Tesco is first.
-- Accounts, saved plans across devices, or live prices in the planning catalogue — the 51 product
+- Accounts, saved plans across devices, or live prices in the planning catalogue. The 51 product
   lines used for planning are static sample data.
 - Nutrition, leftovers, or carrying an ingredient over to next week.
 
