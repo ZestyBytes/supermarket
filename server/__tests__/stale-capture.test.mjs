@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveSession } from "../session.mjs";
 import { learnEndpoint } from "../learn-endpoint.mjs";
 
-/** A JWT with the given lifetime, signed with nothing — only the claims matter. */
+/** A JWT with the given lifetime, signed with nothing, because only the claims matter. */
 function token(secondsFromNow) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);

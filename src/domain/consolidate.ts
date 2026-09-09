@@ -10,7 +10,7 @@ export interface Catalogue {
  * Turn a week of planned meals into one requirement per ingredient.
  *
  * Quantities are scaled to the servings each meal is cooked for, converted to
- * the ingredient's own unit, and summed — so onions asked for by three
+ * the ingredient's own unit, and summed, so onions asked for by three
  * different dinners become a single "5 onions" line that remembers who
  * asked for them.
  */

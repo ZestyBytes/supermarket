@@ -18,7 +18,7 @@ describe("newAttemptId", () => {
     expect(newAttemptId()).toMatch(UUID);
   });
 
-  it("still works with no randomUUID — a phone on plain HTTP over the LAN", () => {
+  it("still works with no randomUUID: a phone on plain HTTP over the LAN", () => {
     withCrypto({ getRandomValues: real.getRandomValues.bind(real) });
     const id = newAttemptId();
     expect(id).toMatch(UUID);

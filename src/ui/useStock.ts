@@ -13,7 +13,7 @@ export interface StockState {
   done: number;
   total: number;
   running: boolean;
-  /** Set when there is no point trying — no server, or Tesco not connected. */
+  /** Set when there is no point trying: no server, or Tesco not connected. */
   off: boolean;
 }
 
@@ -41,7 +41,7 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
   // No "have I already started?" guard here. React runs an effect twice in
   // development to catch exactly this sort of thing, and a guard like that
   // lets the FIRST run proceed and then cancels it, while the second returns
-  // early — so nothing happens at all, in development only. Each run instead
+  // early, so nothing happens at all, in development only. Each run instead
   // owns its own cancelled flag; the searches are cached server-side, so a
   // repeat costs nothing.
   useEffect(() => {
@@ -56,7 +56,7 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
           return;
         }
       } catch {
-        // No local server — this copy cannot ask, and saying so once is enough.
+        // No local server, so this copy cannot ask, and saying so once is enough.
         setState((s) => ({ ...s, off: true }));
         return;
       }
@@ -105,7 +105,7 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
 
 /**
  * Reuse the shopping search term, so what we ask here is exactly what the
- * shop will ask later — otherwise a meal could read as available and then
+ * shop will ask later, because otherwise a meal could read as available and then
  * fail at the till.
  */
 function termFor(ingredientId: string, ingredients: Ingredient[]): string {

@@ -14,7 +14,7 @@ export interface Reconciliation {
   lines: LineStatus[];
   /** Everything on our list that the basket now holds in full. */
   done: number;
-  /** Ours that are missing or short — the ones worth looking at. */
+  /** Ours that are missing or short: the ones worth looking at. */
   problems: LineStatus[];
   /** Things in the basket that were nothing to do with this week's plan. */
   othersInBasket: number;
@@ -24,7 +24,7 @@ export interface Reconciliation {
  * Check the basket against the list we meant to add, line by line.
  *
  * What was sent is not evidence; what Tesco says it holds is. And the basket
- * is not ours alone — someone else in the house adds to it too — so the
+ * is not ours alone. Someone else in the house adds to it too, so the
  * question is never "what is in the basket" but "is everything we asked for
  * in it". Their items are counted and otherwise left alone.
  */

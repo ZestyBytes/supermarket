@@ -6,7 +6,7 @@ import { retailerError } from "./http.mjs";
  * It behaves like the real thing in the ways that matter: search returns
  * several pack sizes with the size written into the title, the basket is
  * read back rather than assumed, and its reported total includes a delivery
- * charge the product prices do not — the same discrepancy a real retailer
+ * charge the product prices do not, the same discrepancy a real retailer
  * shows.
  */
 const SHELF = [

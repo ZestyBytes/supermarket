@@ -5,7 +5,7 @@ import { redact } from "../session.mjs";
 /**
  * A retailer client driven entirely by config.
  *
- * No retailer's internal endpoints are hard-coded here — guessing them would
+ * No retailer's internal endpoints are hard-coded here: guessing them would
  * produce a client that silently does the wrong thing. `retailer.config.json`
  * declares the URLs, the request shape and where the interesting values sit in
  * the response; this module does the talking, the cookie handling and the
@@ -119,7 +119,7 @@ export function createHttpAdapter(config, getSession) {
           qty: Number(item.qty ?? 0),
           price: Number(item.price ?? 0),
         })),
-        // The retailer's own total is authoritative — it knows about delivery,
+        // The retailer's own total is authoritative, because it knows about delivery,
         // packaging, offers and anything already in the basket. Never
         // substitute our estimate for it.
         total: Number(pick(payload, config.basket.read.total) ?? 0),
@@ -156,7 +156,7 @@ function requireConfig(config) {
 
   // A read must never change anything. Config written before this check
   // existed, or edited by hand, can still carry a mutation batched in with
-  // the read — which would edit the basket every time it is looked at.
+  // the read, which would edit the basket every time it is looked at.
   for (const [name, spec] of [
     ["search", config.search],
     ["basket.read", config.basket?.read],

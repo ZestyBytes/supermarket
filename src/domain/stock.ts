@@ -19,7 +19,7 @@ export interface MealStock {
  *
  * The point of checking in the background is that choosing a dinner and
  * finding out whether it can be bought should be the same moment. A meal is
- * only "short" once we know something is missing — until every ingredient has
+ * only "short" once we know something is missing. Until every ingredient has
  * been asked about it stays unknown, because an amber flag on an ingredient we
  * simply have not got to yet would be a lie.
  */
@@ -45,8 +45,8 @@ export function mealStock(recipe: Recipe, stock: Stock, ingredients: Ingredient[
 /**
  * Every ingredient the catalogue could ask for, once each.
  *
- * Ingredients are shared heavily between meals — onions are in a third of
- * them — so asking per meal would be asking the same question dozens of times.
+ * Ingredients are shared heavily between meals: onions are in a third of
+ * them, so asking per meal would be asking the same question dozens of times.
  */
 export function ingredientsToCheck(recipes: Recipe[]): string[] {
   const seen = new Set<string>();

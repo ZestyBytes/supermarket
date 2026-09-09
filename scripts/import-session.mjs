@@ -25,7 +25,7 @@ async function main() {
   const cookie = await readCookie();
 
   if (!cookie || cookie.trim().length === 0) {
-    fail("Nothing pasted — no session imported.");
+    fail("Nothing pasted, so no session imported.");
   }
 
   const saved = saveSession(cookie.trim());

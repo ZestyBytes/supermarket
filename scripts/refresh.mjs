@@ -7,7 +7,7 @@ import { learnEndpoint } from "../server/learn-endpoint.mjs";
 /**
  * Capture a request and learn from it in one go.
  *
- * The retailer's token is short-lived — minutes, not hours — so a capture that
+ * The retailer's token is short-lived, minutes rather than hours, so a capture that
  * sits in a file while you run a second command is often already dead. This
  * copies from the clipboard and uses it immediately.
  *
@@ -46,7 +46,7 @@ console.log("  2. Do it once, so the request is fresh");
 console.log("  3. Right-click anywhere in the request list → Copy → Copy ALL as cURL");
 console.log("  4. Come straight back here and press Enter");
 console.log("");
-console.log("Copy all of them — picking the right row is this tool's job, not yours.");
+console.log("Copy all of them. Picking the right row is this tool's job, not yours.");
 console.log("");
 console.log("The token in a captured request lasts about an hour, so do the action now rather than");
 console.log("reusing something copied earlier.");
@@ -63,7 +63,7 @@ try {
 
 const verdict = classifyClipboard(clipboard);
 if (verdict.kind !== "curl") {
-  console.error(`\nThat is not a copied request — ${verdict.why}`);
+  console.error(`\nThat is not a copied request. ${verdict.why}`);
   console.error("Nothing was changed. Copy the requests in DevTools and run this again.");
   process.exit(1);
 }
@@ -124,7 +124,7 @@ function reportPickFailure(picked) {
   }
   console.error(`\nNothing in the clipboard looks like ${chosen.what}.`);
   if (kindArg === "search") {
-    console.error(`  No copied request contained "${first}" — so the search you typed is not among them.`);
+    console.error(`  No copied request contained "${first}", so the search you typed is not among them.`);
     console.error("  Clear the Network list, search again with it open, then copy all as cURL.");
   }
   console.error(`  The requests copied were: ${picked.seen.slice(0, 20).join(", ") || "(none named)"}`);

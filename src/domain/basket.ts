@@ -47,7 +47,7 @@ export function totals(lines: BasketLine[], deliveryFee: number): BasketTotals {
  * Fold the plan's matched lines into the basket.
  *
  * A product already in the basket is topped up to what the plan needs rather
- * than doubled — so pressing "add to basket" twice does not buy two weeks of
+ * than doubled, so pressing "add to basket" twice does not buy two weeks of
  * mince, and a manual purchase counts towards the plan.
  */
 export function applyPlan(basket: BasketLine[], matched: MatchedLine[]): BasketLine[] {

@@ -4,7 +4,7 @@ const normalise=(value:string)=>value.toLowerCase().replace(/[’']/g,'').replac
 
 /**
  * Match a meal by name, by a name people actually use for it, or by something
- * in it — "chicken" should find the curry, not just a dish called chicken.
+ * in it: "chicken" should find the curry, not just a dish called chicken.
  */
 export function matchesMeal(recipe:Recipe,query:string,ingredients:Ingredient[]=[]) {
  const needle=normalise(query);

@@ -10,7 +10,7 @@ let busy = false;
 /**
  * Tesco's token dies after roughly an hour, so a session captured once is
  * stale by the evening. Left to the person, that means noticing the app has
- * gone quiet and clicking Connect again — which is the whole annoyance.
+ * gone quiet and clicking Connect again, which is the whole annoyance.
  *
  * With "Stay connected" on, this opens a Tesco page in the background every
  * half hour, lets it mint a token as it normally would, captures that, and

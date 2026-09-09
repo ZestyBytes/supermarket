@@ -47,8 +47,8 @@ export async function learnEndpoint({
   }
 
   // A bearer token is a credential: it joins the session, never the config.
-  // An old capture is still perfectly good for its endpoint and query — only
-  // its token has gone stale — so a fresher token already in the session is
+  // An old capture is still perfectly good for its endpoint and query. Only
+  // its token has gone stale, so a fresher token already in the session is
   // used rather than refusing, and never overwritten with the stale one.
   if (request.secrets?.authorization) {
     const captured = tokenLife(request.secrets.authorization);
@@ -58,7 +58,7 @@ export async function learnEndpoint({
       const minutes = Math.abs(Math.round(captured.secondsLeft / 60));
       if (held && !held.expired) {
         log.log(`The token in this capture expired ${minutes} minutes ago.`);
-        log.log(`Using the one already in your session instead — good for another ${Math.round(held.secondsLeft / 60)} minutes.`);
+        log.log(`Using the one already in your session instead, good for another ${Math.round(held.secondsLeft / 60)} minutes.`);
       } else {
         log.warn(`\nThat token expired ${minutes} minutes ago, and your session has no fresher one.`);
         log.warn("  Reload the page, redo the action, and copy the request again.");
@@ -99,7 +99,7 @@ export async function learnEndpoint({
   const entry = { method: spec.method, path: spec.path };
 
   // Store only the operation being learned. The capture may batch it with
-  // others — including mutations that would change the basket every time it
+  // others, including mutations that would change the basket every time it
   // is read.
   let body = operation ? narrowToOperation(spec.body, operation) : spec.body;
   if (kind !== "basket-add") {
@@ -116,7 +116,7 @@ export async function learnEndpoint({
 
   if (kind === "basket-add") {
     config.basket = { ...(config.basket ?? {}), add: entry };
-    log.log("Recorded the add-to-basket request. It was not replayed — configuring must not buy anything.");
+    log.log("Recorded the add-to-basket request. It was not replayed, because configuring must not buy anything.");
     outcome = { ok: true, replayed: false };
   } else {
     const payload = await replay({ ...spec, body }, log);
@@ -183,7 +183,7 @@ async function replay(spec, log) {
     try {
       return JSON.parse(body);
     } catch {
-      log.warn(`Response was not JSON (${response.status}) — usually a sign-in wall.`);
+      log.warn(`Response was not JSON (${response.status}), usually a sign-in wall.`);
       return null;
     }
   } catch (error) {
@@ -272,8 +272,8 @@ function sampleFrom(payload, listPath) {
 /**
  * Keep the headers the API needs; drop only noise.
  *
- * An allowlist threw away the custom headers these APIs require — an x-apikey,
- * a trace id — leaving requests that fail for no visible reason. Credentials
+ * An allowlist threw away the custom headers these APIs require, such as an x-apikey
+ * or a trace id, leaving requests that fail for no visible reason. Credentials
  * are already gone: parseCurl strips them before this runs.
  */
 function keepUsefulHeaders(headers) {

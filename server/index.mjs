@@ -67,7 +67,7 @@ const server = createServer(async (req, res) => {
 // raw EADDRINUSE stack says nothing about what to do next.
 server.on("error", (error) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`\nPort ${PORT} is already in use — an earlier Supermarket server is still running.`);
+    console.error(`\nPort ${PORT} is already in use. An earlier Supermarket server is still running.`);
     console.error("Stop it and try again:");
     console.error(`  Windows      Stop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force`);
     console.error(`  macOS/Linux  kill $(lsof -ti tcp:${PORT})`);
@@ -80,7 +80,7 @@ server.listen(PORT, "127.0.0.1", () => {
   // Say it here rather than letting the first search fail with "signed out".
   if (!MOCK) {
     startConnectionReceiver();
-    if (!loadSession()) console.log("Not connected to Tesco yet — open the Supermarket extension in Chrome and click Connect.");
+    if (!loadSession()) console.log("Not connected to Tesco yet. Open the Supermarket extension in Chrome and click Connect.");
   }
 });
 function send(res, status, payload) { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(payload)); }

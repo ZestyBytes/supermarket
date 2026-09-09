@@ -3,7 +3,7 @@ import { isLoopbackPage } from "../retailerClient";
 
 /**
  * Wording only. Whether a local server is actually there is settled by asking
- * it — a phone reaching the dev server across the house is not a loopback
+ * it: a phone reaching the dev server across the house is not a loopback
  * page, but the /api proxy still lands on a real server.
  */
 function pretendPageAt(hostname: string) {

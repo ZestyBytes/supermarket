@@ -2,7 +2,7 @@
  * Serialised request queue.
  *
  * Firing a week's ingredient searches at a retailer in parallel gets them
- * refused — one at a time with a gap between is both politer and, once the
+ * refused. One at a time with a gap between is both politer and, once the
  * failures and retries are counted, usually faster than a burst.
  */
 export function createQueue({ minIntervalMs = 350, retries = 1, backoffMs = 1200, sleep = defaultSleep } = {}) {

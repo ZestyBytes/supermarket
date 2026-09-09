@@ -87,7 +87,7 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock }:
                 <div className="fresh-details">
                   {short && (
                     <p className="fresh-missing">
-                      Tesco has nothing for {have.missing.join(', ')} — the rest can still be bought.
+                      Tesco has nothing for {have.missing.join(', ')}, but the rest can still be bought.
                     </p>
                   )}
                   <p>{recipe.blurb}</p>

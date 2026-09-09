@@ -1,7 +1,7 @@
 /**
  * An id for one basket submission, used to stop a retry adding the week twice.
  *
- * `crypto.randomUUID` exists only in a secure context — HTTPS, or localhost.
+ * `crypto.randomUUID` exists only in a secure context: HTTPS, or localhost.
  * The phone-on-the-sofa setup is neither: it reaches the dev server over plain
  * HTTP at something like http://192.168.1.42:5173, where the property is
  * simply absent and calling it throws during render, blanking the whole page.

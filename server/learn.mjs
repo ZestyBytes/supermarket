@@ -3,8 +3,8 @@
  *
  * "Copy as cURL" on a request the retailer's own site just made is the one
  * source of truth about its API that does not involve guessing. These
- * functions read that command, template out the bits that vary, and — given a
- * real response — work out where the interesting values live in it.
+ * functions read that command, template out the bits that vary, and, given a
+ * real response, work out where the interesting values live in it.
  */
 
 /** Headers that must never be copied into config: they are credentials. */
@@ -14,7 +14,7 @@ const SECRET_HEADERS = new Set(["cookie", "authorization", "x-csrf-token", "prox
 export function parseCurl(text, { keepSecrets = false } = {}) {
   const tokens = tokenize(uncaret(String(text)).trim());
 
-  if (tokens[0] !== "curl") throw new Error("That does not start with `curl` — copy the request as cURL.");
+  if (tokens[0] !== "curl") throw new Error("That does not start with `curl`. Copy the request as cURL.");
 
   const request = { method: null, url: null, headers: {}, body: null, droppedHeaders: [] };
   // Never part of the returned request unless the caller asks: the default is
@@ -59,7 +59,7 @@ export function parseCurl(text, { keepSecrets = false } = {}) {
  * Undo Windows cmd escaping.
  *
  * "Copy as cURL (cmd)" puts a caret in front of every character cmd treats as
- * special — including the quotes themselves, so a URL arrives as
+ * special, including the quotes themselves, so a URL arrives as
  * ^"https://xapi.tesco.com/^". Carets are stripped only when the text is
  * actually cmd-flavoured, so a bash copy containing a literal ^ is left alone.
  */
@@ -104,7 +104,7 @@ function tokenize(input) {
 /**
  * Replace the values that change between calls with {placeholders}.
  *
- * The search term you used, the product you added, the quantity — those become
+ * The search term you used, the product you added, the quantity: those become
  * `{query}`, `{productId}` and `{qty}` wherever they appear in the path, the
  * query string or the body.
  */
@@ -139,7 +139,7 @@ export function templatize(request, samples) {
  * Find the list of products or basket items in a response.
  *
  * Picks the longest array of objects that look like records rather than the
- * first array encountered — retailers wrap results in several layers, some of
+ * first array encountered, because retailers wrap results in several layers, some of
  * which are arrays of facets or breadcrumbs.
  */
 export function inferList(payload) {
@@ -306,7 +306,7 @@ function safeHost(url) {
  * How long a bearer token has left.
  *
  * These are JWTs: the middle segment is base64url JSON carrying `exp`. Reading
- * it locally turns "Unauthorized" — which arrives long after the mistake — into
+ * it locally turns "Unauthorized", which arrives long after the mistake, into
  * "this expired 20 minutes ago", before a request is even sent. Only the
  * timestamps are read; the token is never logged.
  */
@@ -373,8 +373,8 @@ const WANTED = {
 /**
  * Find the one request that does the job, among everything the page fired.
  *
- * A retailer page posts dozens of operations to the same endpoint —
- * recommendations, analytics, taxonomy — so the operation name is what tells
+ * A retailer page posts dozens of operations to the same endpoint:
+ * recommendations, analytics and taxonomy, so the operation name is what tells
  * them apart. Returns the chosen command, or the candidates when the choice
  * is not obvious enough to make automatically.
  */
@@ -445,7 +445,7 @@ function names(entries) {
  *
  * A retailer batches unrelated operations into one POST: reading a basket
  * arrives alongside a mutation that *changes* it. Storing the batch verbatim
- * would mean every basket read replays that mutation — silently editing the
+ * would mean every basket read replays that mutation, silently editing the
  * basket as a side effect of looking at it.
  */
 export function narrowToOperation(body, operationName) {

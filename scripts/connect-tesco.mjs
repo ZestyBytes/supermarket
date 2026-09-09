@@ -18,7 +18,7 @@ function stop() { clearTimeout(timer); server.close(); server.closeIdleConnectio
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
 server.on('error', () => { console.error('Connection helper could not start. Check whether npm run connect is already running.'); clearTimeout(timer); process.exitCode = 1; });
 server.listen(8788, '127.0.0.1', () => {
-  console.log('Only needed for first-time setup — once the extension is loaded, npm start listens for it.');
+  console.log('Only needed for first-time setup. Once the extension is loaded, npm start listens for it.');
   console.log('In your usual Chrome, open chrome://extensions, enable Developer mode, and Load unpacked:');
   console.log(fileURLToPath(new URL('../browser-extension', import.meta.url)));
   console.log('Then open Supermarket Tesco Connect from the extensions menu, click Connect, and refresh your Tesco basket.');

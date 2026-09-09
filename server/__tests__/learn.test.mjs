@@ -88,7 +88,7 @@ describe("parseCurl", () => {
   });
 
   it("refuses anything that is not a cURL command", () => {
-    expect(() => parseCurl("GET /api/search")).toThrow(/copy the request as cURL/);
+    expect(() => parseCurl("GET /api/search")).toThrow(/Copy the request as cURL/);
   });
 });
 

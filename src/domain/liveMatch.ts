@@ -21,7 +21,7 @@ export interface LiveChoice {
   alternatives: RetailerProduct[];
   /**
    * Set when the pack maths could not be done exactly and one pack was taken
-   * as enough — the title did not say a size, or said it in a different
+   * as enough: the title did not say a size, or said it in a different
    * measure than the recipe. Worth showing quietly; not worth refusing over.
    */
   assumed?: "size" | "unit";
@@ -31,7 +31,7 @@ export interface LiveReview {
   requirement: Requirement;
   /**
    * Why nothing could be chosen. Both remaining reasons mean Tesco returned
-   * nothing usable — a pack we cannot measure is still a pack we can buy, so
+   * nothing usable, and a pack we cannot measure is still a pack we can buy, so
    * that is no longer a reason to leave an ingredient out.
    */
   reason: "no-results" | "search-failed";
@@ -47,8 +47,8 @@ export interface LiveMatch {
  * Turn live search results into a decision.
  *
  * Where the pack size is written in the title we can do the maths properly and
- * buy exactly enough. Where it is not — or where it is written in a different
- * measure than the recipe — we take one pack and say so.
+ * buy exactly enough. Where it is not, or where it is written in a different
+ * measure than the recipe, we take one pack and say so.
  *
  * Refusing those was the wrong call. "Peppers, sold by a different measure" is
  * not a shop that cannot be done; it is a pepper. Leaving it out to be exact
@@ -93,7 +93,7 @@ export function chooseLiveProducts(
       .sort((a, b) => a.cost - b.cost || a.surplus - b.surplus);
 
     if (costed.length === 0) {
-      // Nothing we could measure — buy the cheapest sensible one and move on.
+      // Nothing we could measure, so buy the cheapest sensible one and move on.
       const relevant = candidates.filter((product) => relevantProduct(requirement.ingredient.id, product.title));
       const usable = (relevant.length > 0 ? relevant : candidates).slice().sort((a, b) => a.price - b.price);
       const [pick, ...others] = usable;
@@ -127,7 +127,7 @@ export function chooseLiveProducts(
   return { choices, review };
 }
 
-/** The search term to send for an ingredient. Deliberately plain — retailers match words. */
+/** The search term to send for an ingredient. Deliberately plain, because retailers match words. */
 export function searchTermFor(requirement: Requirement): string {
   const terms: Record<string, string> = { 'beef-mince': 'beef mince 5% fat', 'chicken-thigh': 'chicken thigh fillets', rice: 'basmati rice 1kg', tortilla: 'plain tortilla wraps', ginger: 'ginger', pepper: 'peppers', peas: 'frozen garden peas', lemon: 'lemons pack', lime: 'limes pack' };
   if (terms[requirement.ingredient.id]) return terms[requirement.ingredient.id];
@@ -157,7 +157,7 @@ function relevantProduct(id: string, title: string): boolean {
  * A stable fingerprint of what a submission would send.
  *
  * Recorded after a successful add so that pressing the button again on an
- * unchanged plan asks first — a repeated request must not silently buy the
+ * unchanged plan asks first: a repeated request must not silently buy the
  * week twice.
  */
 export function submissionFingerprint(choices: LiveChoice[]): string {

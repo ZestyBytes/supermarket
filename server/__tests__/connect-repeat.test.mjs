@@ -4,7 +4,7 @@ import { createConnectionReceiver } from '../connection-receiver.mjs';
 /**
  * Tesco's token lasts about an hour, so reconnecting is routine, not a one-off.
  * A receiver that latches shut after the first success forces a restart of the
- * whole app every time — which is the thing that made this tedious.
+ * whole app every time, which is the thing that made this tedious.
  */
 const EXT = 'abcdefghijklmnopqrstuvwxyzabcdef';
 const SESSION = { cookie: 'a=1', headers: { authorization: 'Bearer token-value' } };

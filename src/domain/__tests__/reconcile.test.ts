@@ -31,7 +31,7 @@ describe("reconcile", () => {
     expect(result.problems).toEqual([]);
   });
 
-  it("catches a line that never made it — the half-a-shop case", () => {
+  it("catches a line that never made it: the half-a-shop case", () => {
     const result = reconcile([choice("a", "Onions", 1), choice("b", "Mince", 2)], basket([["a", 1]]));
     expect(result.done).toBe(1);
     expect(result.problems).toHaveLength(1);

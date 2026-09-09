@@ -4,7 +4,7 @@ import type { RetailerProduct } from "./liveMatch";
  * Talks to the local server, which is the only thing that holds the session.
  *
  * Every failure the server can report has a code, because the app must tell
- * "you are signed out" apart from "nothing found" — showing an empty
+ * "you are signed out" apart from "nothing found", so showing an empty
  * catalogue when the real answer is an expired session is what sends someone
  * hunting for a bug that is not there.
  */
@@ -38,7 +38,7 @@ export interface SessionState {
 
 export interface RetailerBasket {
   items: Array<{ id: string; title: string; qty: number; price: number }>;
-  /** The retailer's own total. Authoritative — it knows about delivery and offers. */
+  /** The retailer's own total. Authoritative, because it knows about delivery and offers. */
   total: number;
 }
 
@@ -49,7 +49,7 @@ const BASE = "/api";
  *
  * Only used to word a failure, never to decide one. A phone on the sofa
  * reaching the dev server across the house is not a loopback page, but the
- * `/api` proxy still lands on a real local server — so deciding from the
+ * `/api` proxy still lands on a real local server, so deciding from the
  * hostname would refuse exactly the setup that works. Ask the server instead.
  */
 export function isLoopbackPage(): boolean {
@@ -74,7 +74,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     | null;
 
   if (!response.ok || !payload?.ok) {
-    // No JSON body at all means nothing that speaks our protocol answered —
+    // No JSON body at all means nothing that speaks our protocol answered:
     // a static host serving its own 404 page, not a retailer refusing us.
     if (!payload) {
       throw new RetailerError(

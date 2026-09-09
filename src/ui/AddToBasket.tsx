@@ -26,7 +26,7 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
           <Icon name={failed ? "warning" : "check"} size={20} />
           {failed === 0
             ? `All ${lines} in your Tesco basket · ${money(state.total)}`
-            : `${lines - failed} of ${lines} added — see the shopping list`}
+            : `${lines - failed} of ${lines} added. See the shopping list.`}
         </p>
       </div>
     );
@@ -50,7 +50,7 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
       </button>
       {missing > 0 && !busy && (
         <p className="dock__note">
-          {missing === 1 ? "1 ingredient" : `${missing} ingredients`} Tesco has nothing for — you will need to pick
+          {missing === 1 ? "1 ingredient" : `${missing} ingredients`} Tesco has nothing for, so you will need to pick
           {missing === 1 ? " it" : " them"} up yourself.
         </p>
       )}

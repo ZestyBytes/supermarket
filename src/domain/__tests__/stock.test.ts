@@ -44,7 +44,7 @@ describe("mealStock", () => {
     expect(result.total).toBe(2);
   });
 
-  it("says short even when the rest is unchecked — one miss is enough to know", () => {
+  it("says short even when the rest is unchecked: one miss is enough to know", () => {
     const result = mealStock(recipe("paella", ["onion", "saffron"]), stock([["saffron", "no"]]), ingredients);
     expect(result.state).toBe("short");
   });

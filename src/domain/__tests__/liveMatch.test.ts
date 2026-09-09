@@ -36,7 +36,7 @@ describe("chooseLiveProducts", () => {
     expect(result.choices[0].product.id).toBe('g');
   });
   it("picks the cheapest way to cover the need in whole packs", () => {
-    // 600g: one 650g pack at £4.90 beats two 320g packs at £4.88? No — £4.88 is
+    // 600g: one 650g pack at £4.90 beats two 320g packs at £4.88? No; £4.88 is
     // cheaper, and two packs is what a shopper would actually buy.
     const { choices } = chooseLiveProducts(new Map([["chicken-breast", CHICKEN]]), [need(chicken, 600)]);
     expect(choices[0].product.id).toBe("t-320");

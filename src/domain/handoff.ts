@@ -16,7 +16,7 @@ export interface BasketTarget {
 }
 
 export function asText(lines: BasketLine[]): string {
-  const rows = lines.map((l) => `${l.qty} × ${l.product.name} (${l.product.size}) — ${money(l.product.price * l.qty)}`);
+  const rows = lines.map((l) => `${l.qty} × ${l.product.name} (${l.product.size}); ${money(l.product.price * l.qty)}`);
   const total = lines.reduce((sum, l) => sum + l.product.price * l.qty, 0);
   return [...rows, "", `Total ${money(total)}`].join("\n");
 }
@@ -35,7 +35,7 @@ export const clipboardTarget: BasketTarget = {
   async send(lines) {
     try {
       await navigator.clipboard.writeText(asText(lines));
-      return { ok: true, message: "Shopping list copied — paste it into your supermarket app." };
+      return { ok: true, message: "Shopping list copied. Paste it into your supermarket app." };
     } catch {
       return { ok: false, message: "Your browser blocked the clipboard. Use Download CSV instead." };
     }

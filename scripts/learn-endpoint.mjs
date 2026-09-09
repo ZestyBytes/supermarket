@@ -23,7 +23,7 @@ const file = flag("--file");
 if (!kind || !file) {
   fail(
     [
-      "Run this with node directly — npm eats the flags:",
+      "Run this with node directly, because npm eats the flags:",
       "",
       "  node scripts/learn-endpoint.mjs --kind search      --term chicken --file search.txt",
       "  node scripts/learn-endpoint.mjs --kind basket-read                --file basket.txt",

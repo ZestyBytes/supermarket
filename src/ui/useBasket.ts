@@ -33,7 +33,7 @@ export interface ItemStatus {
 
 export interface BasketState {
   phase: BasketPhase;
-  /** Set when we are connected — the moment we last read the basket. */
+  /** Set when we are connected: the moment we last read the basket. */
   connectedAt?: string;
   problem?: string;
   match: LiveMatch | null;
@@ -53,7 +53,7 @@ const NOTHING: RetailerBasket["items"] = [];
  * Everything to do with Tesco, for the whole app.
  *
  * This used to be a page you visited: press find, wait, read, press add. But
- * none of that is a decision — it is work, and work belongs in the background.
+ * none of that is a decision, it is work, and work belongs in the background.
  * The connection is checked before you pick anything, the products are matched
  * as soon as the plan changes, and all that is left for a person to do is say
  * yes once.

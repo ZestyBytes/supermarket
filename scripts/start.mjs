@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
  *
  * With --host the UI is offered to the home network so a phone can reach it.
  * The API is never opened up: it stays on loopback, and the dev server proxy
- * — running on this same machine — is the only way to it.
+ *; running on this same machine; is the only way to it.
  */
 const onNetwork = process.argv.includes('--host');
 const vite = ['../node_modules/vite/bin/vite.js', ...(onNetwork ? ['--host'] : [])];

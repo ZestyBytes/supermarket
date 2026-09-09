@@ -19,7 +19,7 @@ export function usePersistentState<T>(key: string, initial: T): [T, React.Dispat
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      /* storage unavailable — keep going without persistence */
+      /* storage unavailable, so keep going without persistence */
     }
   }, [key, value]);
 

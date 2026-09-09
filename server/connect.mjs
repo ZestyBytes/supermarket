@@ -16,7 +16,7 @@ export function extensionId() {
 /**
  * Listens for the browser extension for as long as the app is running.
  *
- * Tesco's token lasts about an hour, so reconnecting is not a one-off — it is
+ * Tesco's token lasts about an hour, so reconnecting is not a one-off, it is
  * something you do again over a week of shopping. Running this inside the
  * server means reconnecting is a click in the extension, with no second
  * terminal and nothing to restart. Each connection is still verified against
@@ -30,13 +30,13 @@ export function startConnectionReceiver({ onConnected } = {}) {
     verify: session => createOpenSupermarketsAdapter({ getSession: () => session }).readBasket(),
     save: session => saveSession(session.cookie, session),
     onConnected: basket => {
-      console.log(`Connected to Tesco — basket read succeeded (${basket.items.length} lines). Nothing was changed.`);
+      console.log(`Connected to Tesco. Basket read succeeded (${basket.items.length} lines). Nothing was changed.`);
       onConnected?.(basket);
     },
   });
 
   receiver.on('error', error => {
-    if (error.code === 'EADDRINUSE') console.error(`Connect helper: port ${CONNECT_PORT} is busy — is "npm run connect" already running?`);
+    if (error.code === 'EADDRINUSE') console.error(`Connect helper: port ${CONNECT_PORT} is busy. Is "npm run connect" already running?`);
     else console.error('Connect helper could not start.');
   });
 

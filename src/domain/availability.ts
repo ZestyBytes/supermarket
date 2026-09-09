@@ -12,7 +12,7 @@ export interface MealRisk {
  *
  * "3 ingredients need review" is not a decision anyone can make. "Chicken
  * Curry is missing coconut milk and coriander" is: cook something else, or buy
- * those two yourself. Consolidation makes this possible in the first place —
+ * those two yourself. Consolidation makes this possible in the first place:
  * each requirement still remembers which meals asked for it, so an ingredient
  * that four meals share correctly implicates all four.
  *

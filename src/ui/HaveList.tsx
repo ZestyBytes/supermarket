@@ -16,13 +16,14 @@ interface Props {
 }
 
 /**
- * The list, grouped by aisle, with each line saying where it has got to.
+ * The list, grouped by aisle, one line per thing to buy.
  *
- * Two things people need from this and could not get: whether an ingredient
- * actually made it into the basket, and whether something in the basket came
- * from somewhere else. Both are now on the page — the second in its own
- * section, because someone else's shopping is not a fault to fix, just
- * something to know about before you check out.
+ * Each line used to name the ingredient and then, underneath, the product
+ * Tesco would sell you for it. That is the same thing said twice, at twice the
+ * height: once the product is known it is the better of the two names, because
+ * it is what turns up at the door. So the product becomes the line, a tick
+ * beside it means it is in the basket, and a second line appears only when
+ * there is something you could not have guessed.
  */
 export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: Props) {
   if (requirements.length === 0) {
@@ -30,16 +31,13 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
   }
 
   const groups = byAisle(requirements);
-  const ticked = requirements.filter((r) => pantry.has(r.ingredient.id)).length;
   const stateOf = (id: string) => statuses.find((s) => s.ingredientId === id);
 
   return (
     <>
       <p className="hint">
         <Icon name="info" size={17} />
-        <span>
-          Tick anything already in the cupboard — <b>{ticked} ticked</b>
-        </span>
+        <span>Tick anything already in the cupboard</span>
       </p>
 
       {groups.map((group) => (
@@ -54,7 +52,7 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
             {group.items.map((requirement) => {
               const have = pantry.has(requirement.ingredient.id);
               const status = have ? undefined : stateOf(requirement.ingredient.id);
-              const meals = requirement.sources.map((s) => s.recipeName);
+              const note = have ? "already have" : aside(requirement, status);
 
               return (
                 <li className={`tick${have ? " tick--have" : ""}`} key={requirement.ingredient.id}>
@@ -64,18 +62,16 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
                       <Icon name="check" size={16} />
                     </span>
                     <span className="tick__text">
-                      <span className="tick__name">{requirement.ingredient.name}</span>
-                      <span className="tick__for">
-                        {have
-                          ? "already have"
-                          : status?.product
-                            ? status.product.title
-                            : meals.length > 2
-                              ? `for ${meals.slice(0, 2).join(", ")} +${meals.length - 2}`
-                              : `for ${meals.join(", ")}`}
+                      <span className="tick__name">
+                        {status?.product ? status.product.title : requirement.ingredient.name}
                       </span>
-                      {status && <Status status={status} />}
+                      {note && <span className={`tick__for${status && bad(status) ? " tick__for--bad" : ""}`}>{note}</span>}
                     </span>
+                    {status?.state === "added" && (
+                      <span className="tick__in" title="In your Tesco basket">
+                        <Icon name="check" size={15} />
+                      </span>
+                    )}
                     {!have && (
                       <span className="tick__qty">
                         {status?.cost != null ? money(status.cost) : formatQty(requirement.qty, requirement.ingredient)}
@@ -98,7 +94,7 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
           </h2>
           <p className="hint hint--quiet">
             <Icon name="info" size={17} />
-            <span>Not from this week's dinners — someone put these in before. They stay as they are.</span>
+            <span>Not from this week's dinners. Someone put these in before, and they stay as they are.</span>
           </p>
           <ul className="ticks">
             {theirs.map((item) => (
@@ -116,26 +112,27 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
   );
 }
 
-/** A short word on where one ingredient has got to, and nothing when it is dull. */
-function Status({ status }: { status: ItemStatus }) {
-  switch (status.state) {
-    case "checking":
-      return <span className="mark mark--wait">Checking Tesco…</span>;
-    case "ready":
-      return (
-        <span className="mark mark--ready">
-          {status.packs} × ready to add
-        </span>
-      );
-    case "added":
-      return (
-        <span className="mark mark--in">
-          <Icon name="check" size={13} /> In your basket
-        </span>
-      );
-    case "failed":
-      return <span className="mark mark--bad">Not added — {status.why}</span>;
-    case "missing":
-      return <span className="mark mark--bad">Tesco has nothing for this</span>;
-  }
+function bad(status: ItemStatus) {
+  return status.state === "failed" || status.state === "missing";
+}
+
+/**
+ * The second line, when there is one.
+ *
+ * Nothing to say once a thing is matched or bought: the product name and the
+ * price have already said it. Which dinners wanted it is only useful while
+ * there is no product to look at.
+ */
+function aside(requirement: Requirement, status?: ItemStatus): string | undefined {
+  if (!status) return undefined;
+  if (status.state === "checking") return "Checking Tesco";
+  if (status.state === "missing") return "Tesco has nothing for this";
+  if (status.state === "failed") return `Not added. ${status.why ?? ""}`.trim();
+  if (status.state === "added") return undefined;
+  // Once there is a product on the line, the line is finished. Which dinners
+  // wanted it only helps while there is nothing else to look at.
+  if (status.product) return undefined;
+
+  const meals = requirement.sources.map((s) => s.recipeName);
+  return meals.length > 2 ? `for ${meals.slice(0, 2).join(", ")} +${meals.length - 2}` : `for ${meals.join(", ")}`;
 }

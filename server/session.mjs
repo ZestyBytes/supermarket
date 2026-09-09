@@ -3,7 +3,7 @@ import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 
 /**
- * The retailer session — a browser cookie the shopper pasted in themselves.
+ * The retailer session: a browser cookie the shopper pasted in themselves.
  *
  * It carries the full weight of a logged-in account, so it lives in the user's
  * home directory, never in the repo, and never in a log line. The browser
@@ -21,7 +21,7 @@ export function sessionPath() {
 export function saveSession(cookie, { retailer = "tesco", file = sessionPath(), authorization, apiHeaders, cookies } = {}) {
   const names = cookieNames(cookie);
   if (names.length === 0) {
-    throw new Error("That does not look like a Cookie header — expected name=value pairs separated by ';'.");
+    throw new Error("That does not look like a Cookie header. Expected name=value pairs separated by ';'.");
   }
 
   const record = {
@@ -64,7 +64,7 @@ export function loadSession({ file = sessionPath() } = {}) {
 /** Merge fields into the stored session, keeping what is already there. */
 export function updateSession(patch, { file = sessionPath() } = {}) {
   const current = loadSession({ file });
-  if (!current) throw new Error("No session imported yet — run: npm run tesco:import");
+  if (!current) throw new Error("No session imported yet. Run: npm run tesco:import");
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
   writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
   if (platform() !== "win32") chmodSync(file, 0o600);

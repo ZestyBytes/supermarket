@@ -23,7 +23,7 @@ const SCALE: Record<string, { unit: CanonicalUnit; factor: number }> = {
 /**
  * Read the pack size out of a retailer's product title.
  *
- * Retailers write the size into the title rather than a field — "Chicken
+ * Retailers write the size into the title rather than a field: "Chicken
  * Breast Fillets 650G", "Chopped Tomatoes 4 X 400G", "Brown Onions 3 Pack".
  * When nothing parses, this returns null: the caller must flag the line for
  * review rather than assume one pack is enough food.

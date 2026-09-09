@@ -7,7 +7,7 @@ import { mutationsIn, narrowToOperation, operationsIn } from "../server/learn.mj
  *
  * A retailer batches several operations into one request, so a capture taken
  * before that was handled holds all of them. The operation you want is already
- * in the config — this keeps it and drops the rest, which matters most when
+ * in the config, so this keeps it and drops the rest, which matters most when
  * one of the others is a mutation that would change the basket on every read.
  *
  *   node scripts/narrow-config.mjs basket GetBasket
@@ -49,7 +49,7 @@ const mutations = mutationsIn(entry.body);
 if (!operation) {
   console.log(`${section} currently holds: ${present.join(", ") || "(no named operations)"}`);
   if (mutations.length > 0) {
-    console.log(`  Mutations in there: ${mutations.join(", ")} — these change your basket.`);
+    console.log(`  Mutations in there: ${mutations.join(", ")}. These change your basket.`);
   }
   console.log(`\nKeep one with: node scripts/narrow-config.mjs ${section} <OperationName>`);
   process.exit(0);
