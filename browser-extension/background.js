@@ -58,9 +58,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await chrome.storage.session.set({
         status: message.on ? 'Staying connected. Nothing else to do.' : 'Automatic reconnection off.',
       });
-      if (message.on) await mintQuietly();
       reply({ ok: true });
-    })();
+      if (message.on) void mintQuietly().catch(() => chrome.storage.session.set({
+        status: 'Automatic connection could not start. Check that Tesco opens normally and Supermarket is running.',
+      }));
+    })().catch(async () => {
+      await chrome.storage.session.set({ status: 'Could not update automatic connection. Reload this extension at chrome://extensions.' });
+      reply({ ok: false });
+    });
     return true;
   }
 
