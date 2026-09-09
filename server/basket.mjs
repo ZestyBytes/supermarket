@@ -9,7 +9,14 @@ export const removalSchema = z.object({
   // that can take away shopping this app did not put there.
   productIds: z.array(z.string().regex(/^[a-zA-Z0-9-]+$/).max(100)).max(200).optional(),
 });
-export const submissionSchema = z.object({ attemptId: z.string().uuid(), items: z.array(z.object({ productId: z.string().regex(/^[a-zA-Z0-9-]+$/).max(100), qty: z.number().int().min(1).max(99) })).min(1).max(60) });
+export const submissionSchema = z.object({ attemptId: z.string().uuid(),
+  /**
+   * Whether the quantities are what to ADD, or what the basket should END UP
+   * holding. Adding on top is right for a person pressing a button once;
+   * keeping the basket in step with a plan needs to be able to say "two", not
+   * "two more", or every edit compounds the last one.
+   */
+  absolute: z.boolean().optional(), items: z.array(z.object({ productId: z.string().regex(/^[a-zA-Z0-9-]+$/).max(100), qty: z.number().int().min(1).max(99) })).min(1).max(60) });
 
 // Being signed out does not improve on the next product. Being told to slow
 // down does, which is the whole difference: one is a refusal, the other is an
@@ -114,7 +121,7 @@ function describe(error) {
 }
 
 export async function submitBasket(client, input, directory = join(homedir(), '.supermarket', 'attempts'), sleep = pause) {
-  const { attemptId, items } = submissionSchema.parse(input);
+  const { attemptId, items, absolute } = submissionSchema.parse(input);
   const combined = new Map();
   for (const item of items) combined.set(item.productId, (combined.get(item.productId) ?? 0) + item.qty);
   await mkdir(directory, { recursive: true });
@@ -132,7 +139,7 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
     // submission is deliberately not retried by the queue, which meant a
     // throttled first read failed the whole shop before it began.
     const before = await patiently(() => client.readBasket(), sleep);
-    const targets = [...combined].map(([productId, qty]) => ({ productId, qty: qty + (before.items.find(i => i.id === productId)?.qty ?? 0) }));
+    const targets = [...combined].map(([productId, qty]) => ({ productId, qty: absolute ? qty : qty + (before.items.find(i => i.id === productId)?.qty ?? 0) }));
     if (targets.some(i => i.qty > 99)) throw retailerError('BAD_REQUEST', 'A product would exceed 99 packs.');
     await writeFile(receiptPath, JSON.stringify({ targets }), { flag: 'wx', mode: 0o600 });
     // One product failing is not a reason to abandon the rest of the shop.

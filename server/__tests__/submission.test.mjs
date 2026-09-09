@@ -174,4 +174,18 @@ describe('verified basket submission', () => {
     expect(result.verified).toBe(true);
     expect(held.get('a')).toBe(1);
   });
+
+  it('sets an absolute quantity when asked, so keeping in step does not compound', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const held = new Map([['a', 3]]);
+    const client = {
+      readBasket: async () => ({ total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) }),
+      setQuantity: async (id, qty) => { held.set(id, qty); },
+    };
+
+    await submitBasket(client, { attemptId: randomUUID(), absolute: true, items: [{ productId: 'a', qty: 2 }] }, dir, async () => {});
+
+    // Two, not five: the plan says two, and the basket now says two.
+    expect(held.get('a')).toBe(2);
+  });
 });

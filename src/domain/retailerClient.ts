@@ -118,8 +118,10 @@ export const clearSearchCache=productSearch.clear;
 export async function addToBasket(
   items: Array<{ productId: string; qty: number }>,
   attemptId: string,
+  /** Treat the quantities as what the basket should hold, not what to add on top. */
+  absolute = false,
 ): Promise<{ added: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
-  return request("/basket", { method: "POST", body: JSON.stringify({ items, attemptId }) });
+  return request("/basket", { method: "POST", body: JSON.stringify({ items, attemptId, absolute }) });
 }
 
 /**

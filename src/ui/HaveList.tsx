@@ -16,8 +16,6 @@ interface Props {
   onToggle: (ingredientId: string) => void;
   /** Buy a different Tesco product for this ingredient. */
   onSwap: (ingredientId: string, productId: string) => void;
-  /** Take this ingredient back out of the Tesco basket. */
-  onUndo: (ingredientId: string) => void;
 }
 
 /**
@@ -30,7 +28,7 @@ interface Props {
  * beside it means it is in the basket, and a second line appears only when
  * there is something you could not have guessed.
  */
-export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap, onUndo }: Props) {
+export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   if (requirements.length === 0) {
     return <p className="empty">Choose some dinners and the list builds itself.</p>;
@@ -94,16 +92,9 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onS
                     </Body>
 
                     {status?.state === "added" && (
-                      <button
-                        className="tick__in"
-                        type="button"
-                        title={`Take ${requirement.ingredient.name} back out of your Tesco basket`}
-                        aria-label={`Take ${requirement.ingredient.name} back out of your Tesco basket`}
-                        onClick={() => onUndo(requirement.ingredient.id)}
-                      >
+                      <span className="tick__in" title="In your Tesco basket">
                         <Icon name="check" size={15} />
-                        <Icon name="cross" size={15} />
-                      </button>
+                      </span>
                     )}
                     {!have && (
                       <span className="tick__qty">

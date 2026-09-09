@@ -11,6 +11,7 @@ import {
 } from "../domain/retailerClient";
 import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
 import { broaderTermFor } from "../domain/broaden";
+import { reconcileBasket, settled } from "../domain/reconcileBasket";
 import { newAttemptId } from "../domain/ids";
 import type { Requirement } from "../domain/types";
 
@@ -52,18 +53,15 @@ export interface BasketState {
   total: number;
   estimated: number;
   progress: {done:number;total:number};
-  add: () => void;
   recheck: () => void;
   /** Buy a different product for this ingredient. Ignored once it is bought. */
   swap: (ingredientId: string, productId: string) => void;
-  /** Take one ingredient back out of the Tesco basket. */
-  undo: (ingredientId: string) => Promise<void>;
-  /** Take everything this week's plan put in back out. */
-  undoAll: () => Promise<void>;
   /** Empty the Tesco basket completely, including what this app did not add. */
   empty: () => Promise<void>;
   /** How many of this week's lines are in the basket now. */
   inBasket: number;
+  /** True while the basket is being brought in line with the week. */
+  syncing: boolean;
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -88,8 +86,8 @@ export function useBasket(requirements: Requirement[]): BasketState {
   const [problem, setProblem] = useState<string>();
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [basket, setBasket] = useState<RetailerBasket | null>(null);
-  const [added, setAdded] = useState<Map<string, ItemStatus["state"]>>(new Map());
   const [failures, setFailures] = useState<Map<string, string>>(new Map());
+  const [syncing, setSyncing] = useState(false);
   // Everything this app has put in the basket, kept for the life of the page.
   // Without it, changing the week after adding turns your own shopping into
   // "someone else put this here", which is a confusing thing to be told.
@@ -147,7 +145,6 @@ export function useBasket(requirements: Requirement[]): BasketState {
     setPhase("matching");
     setProblem(undefined);
     setProgress({done:0,total:requirements.length});
-    setAdded(new Map());
     setFailures(new Map());
 
     const timer=setTimeout(async () => {
@@ -247,14 +244,6 @@ export function useBasket(requirements: Requirement[]): BasketState {
       setBasket(result.basket);
       const gone = new Set(result.basket.items.map((item) => item.id));
       for (const id of mine.current) if (!gone.has(id)) mine.current.delete(id);
-      setAdded((current) => {
-        const next = new Map(current);
-        for (const [ingredientId, state] of current) {
-          const choice = match?.choices.find((c) => c.requirement.ingredient.id === ingredientId);
-          if (state === "added" && choice && !gone.has(choice.product.id)) next.delete(ingredientId);
-        }
-        return next;
-      });
       setPhase("armed");
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
@@ -262,82 +251,88 @@ export function useBasket(requirements: Requirement[]): BasketState {
     }
   }, [match]);
 
-  const undo = useCallback(async (ingredientId: string) => {
-    const choice = match?.choices.find((c) => c.requirement.ingredient.id === ingredientId);
-    if (choice) await unwind([choice.product.id]);
-  }, [match, unwind]);
-
-  const undoAll = useCallback(async () => {
-    const ours = [...new Set(match?.choices.map((c) => c.product.id) ?? [])].filter((id) => mine.current.has(id));
-    if (ours.length > 0) await unwind(ours);
-  }, [match, unwind]);
-
   const empty = useCallback(async () => {
     await unwind(undefined);
   }, [unwind]);
 
-  const add = useCallback(async () => {
-    if (!match || match.choices.length === 0 || writing.current || matchedKey.current!==key || phase!=='armed') return;
-    writing.current=true;
-    setPhase("adding");
+  /**
+   * Keep the basket in step with the week, without being asked.
+   *
+   * Picking a meal already meant "I want to cook this", and pressing a button
+   * afterwards to say it again was a second decision standing in for no new
+   * information. So the basket follows the plan: choose a dinner and its
+   * shopping goes in, drop one and it comes out, tick something off as already
+   * in the cupboard and it comes out too.
+   *
+   * The wait before acting is the point. Someone choosing five dinners taps
+   * five times in a few seconds, and writing to Tesco on each tap is both
+   * twenty-odd needless writes and the surest way to be told to slow down.
+   * Waiting for the picking to stop turns all of it into one round.
+   */
+  const sync = useCallback(async () => {
+    const change = reconcileBasket(match, basket, mine.current);
+    if (settled(change)) return;
+
+    setSyncing(true);
     setProblem(undefined);
     try {
-      const result = await addToBasket(
-        match.choices.map((choice) => ({ productId: choice.product.id, qty: choice.packs })),
-        attempt.current,
-      );
-      setBasket(result.basket);
+      let latest = basket;
 
-      const wentIn = new Map<string, ItemStatus["state"]>();
-      const why = new Map<string, string>();
-      const held = new Map(result.basket.items.map((item) => [item.id, item.qty]));
-      const refused = new Map(
-        (result.failed as Array<{ productId: string; error?: { message?: string } }>).map((f) => [
-          f.productId,
-          f.error?.message ?? "Tesco did not confirm this line.",
-        ]),
-      );
-
-      for (const choice of match.choices) {
-        const ok = (result.added as Array<{productId:string}>).some(item=>item.productId===choice.product.id) && !refused.has(choice.product.id);
-        wentIn.set(choice.requirement.ingredient.id, ok ? "added" : "failed");
-        if (!ok) why.set(choice.requirement.ingredient.id, refused.get(choice.product.id) ?? "Not in the basket.");
+      if (change.set.length > 0) {
+        const result = await addToBasket(change.set, newAttemptId(), true);
+        latest = result.basket;
+        const held = new Map(result.basket.items.map((item) => [item.id, item.qty]));
+        for (const line of change.set) if ((held.get(line.productId) ?? 0) > 0) mine.current.add(line.productId);
       }
 
-      for (const choice of match.choices) {
-        if ((held.get(choice.product.id) ?? 0) > 0) mine.current.add(choice.product.id);
+      if (change.remove.length > 0) {
+        const result = await removeFromBasket(newAttemptId(), change.remove);
+        latest = result.basket;
+        const still = new Set(result.basket.items.map((item) => item.id));
+        for (const id of change.remove) if (!still.has(id)) mine.current.delete(id);
       }
 
-      setAdded(wentIn);
-      setFailures(why);
-      setPhase("added");
+      if (latest) setBasket(latest);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
-      setPhase("armed");
-    } finally {writing.current=false;}
-  }, [match,key,phase]);
+    } finally {
+      setSyncing(false);
+    }
+  }, [match, basket]);
+
+  // Act once the picking stops, not on every tap.
+  useEffect(() => {
+    // "ready" belongs here as much as "armed" does. Taking the last dinner out
+    // of the week, or ticking off the last thing on the list, leaves nothing to
+    // match and so never reaches "armed": without this the shopping for a week
+    // you have cancelled sits in the basket forever.
+    if (phase !== "armed" && phase !== "added" && phase !== "ready") return;
+    if (settled(reconcileBasket(match, basket, mine.current))) return;
+    const timer = setTimeout(() => { void sync(); }, 1400);
+    return () => clearTimeout(timer);
+  }, [phase, match, basket, sync]);
+
 
   // One line per ingredient, in the order the list shows them.
+  const held = new Map((basket?.items ?? []).map((item) => [item.id, item.qty]));
+
+  // Where each line has got to, read off the basket rather than remembered.
+  // A note of what we once sent can disagree with what Tesco actually holds;
+  // the basket cannot.
   const items: ItemStatus[] = requirements.map((requirement) => {
     const id = requirement.ingredient.id;
     const choice = match?.choices.find((c) => c.requirement.ingredient.id === id);
     const missing = match?.review.some((r) => r.requirement.ingredient.id === id);
-    const done = added.get(id);
 
-    if (done) return { ingredientId: id, state: done, product: choice?.product, packs: choice?.packs, cost: choice?.cost, why: failures.get(id), instead: choice?.instead };
     if (missing) return { ingredientId: id, state: "missing" };
-    if (choice) {
-      return {
-        ingredientId: id,
-        state: "ready",
-        product: choice.product,
-        packs: choice.packs,
-        cost: choice.cost,
-        choices: phase==='armed'?choice.candidates:undefined,
-        instead: choice.instead,
-      };
-    }
-    return { ingredientId: id, state: "checking" };
+    if (!choice) return { ingredientId: id, state: "checking" };
+
+    const inBasket = held.get(choice.product.id) ?? 0;
+    const common = { product: choice.product, packs: choice.packs, cost: choice.cost, instead: choice.instead };
+
+    if (inBasket >= choice.packs) return { ingredientId: id, state: "added", ...common };
+    if (failures.has(id)) return { ingredientId: id, state: "failed", why: failures.get(id), ...common };
+    return { ingredientId: id, state: "ready", ...common, choices: choice.candidates };
   });
 
   const estimated = match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0;
@@ -356,12 +351,10 @@ export function useBasket(requirements: Requirement[]): BasketState {
     total: basket?.total ?? 0,
     estimated,
     progress,
-    add,
     recheck: connect,
     swap,
-    undo,
-    undoAll,
     empty,
     inBasket: items.filter((item) => item.state === "added").length,
+    syncing,
   };
 }

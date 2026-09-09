@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { BasketState } from "./useBasket";
 import { Icon } from "./Icon";
 
@@ -78,6 +79,13 @@ export function Settings({ state, servings, wanted, onServings, onWanted }: Prop
 
       <section className="panel">
         <h2 className="panel__head">
+          <span className="label">Your Tesco basket</span>
+        </h2>
+        <Empty state={state} />
+      </section>
+
+      <section className="panel">
+        <h2 className="panel__head">
           <span className="label">This copy</span>
         </h2>
         <p className="note note--version">
@@ -89,6 +97,54 @@ export function Settings({ state, servings, wanted, onServings, onWanted }: Prop
         </p>
       </section>
 
+    </>
+  );
+}
+
+/**
+ * The one action here that can take away shopping this app did not add.
+ *
+ * Everything else removes only what it put in, which makes it safe by
+ * construction. This is not, so it asks first, and says plainly whose
+ * shopping is at stake rather than a general "are you sure".
+ */
+function Empty({ state }: { state: BasketState }) {
+  const [asking, setAsking] = useState(false);
+  const lines = state.inBasket + state.theirs.length;
+
+  if (lines === 0) return <p className="note">Nothing in it.</p>;
+
+  if (!asking) {
+    return (
+      <>
+        <button className="wide wide--undo" type="button" onClick={() => setAsking(true)}>
+          Empty the whole basket
+        </button>
+        <p className="note">
+          Takes out all {lines} lines, including {state.theirs.length > 0 ? `the ${state.theirs.length} this app did not add` : "anything this app did not add"}.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="note note--warn">
+        {state.theirs.length > 0
+          ? `This also removes ${state.theirs.length} ${state.theirs.length === 1 ? "line" : "lines"} someone else put in. It cannot be undone from here.`
+          : "This cannot be undone from here."}
+      </p>
+      <button
+        className="wide wide--danger"
+        type="button"
+        disabled={state.syncing}
+        onClick={() => { setAsking(false); void state.empty(); }}
+      >
+        {state.syncing ? "Emptying" : `Yes, empty all ${lines}`}
+      </button>
+      <button className="wide" type="button" onClick={() => setAsking(false)}>
+        Leave it alone
+      </button>
     </>
   );
 }
