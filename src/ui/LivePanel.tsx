@@ -19,6 +19,8 @@ import { formatQty, money } from "../domain/units";
 import type { Requirement } from "../domain/types";
 import { newAttemptId } from "../domain/ids";
 import { mealsAtRisk, reasonText } from "../domain/availability";
+import { reconcile, type Reconciliation } from "../domain/reconcile";
+import { Icon } from "./Icon";
 
 interface Props {
   /** What the week needs, after consolidation and cupboard exclusions. */
@@ -51,6 +53,7 @@ export function LivePanel({ requirements }: Props) {
   const [reach, setReach] = useState<"checking" | "ok" | "absent">("checking");
   const [conn, setConn] = useState<Connection>({ state: "unknown" });
   const attemptId = useRef(newAttemptId());
+  const [failures, setFailures] = useState<Array<{ productId: string; error?: { message?: string } }>>([]);
 
   useEffect(() => {
     refreshSession();
@@ -94,15 +97,15 @@ export function LivePanel({ requirements }: Props) {
 
     setProgress(`Finding products for ${requirements.length} ingredients…`);
     try {
-      for (let offset = 0; offset < requirements.length; offset += 4) {
-        const group = requirements.slice(offset, offset + 4);
+      for (let offset = 0; offset < requirements.length; offset += 8) {
+        const group = requirements.slice(offset, offset + 8);
         const results = await searchBatch(group.map(searchTermFor));
         for (const requirement of group) {
           const result = results.find(r => r.query === searchTermFor(requirement));
           if (!result || result.error) failures.add(requirement.ingredient.id);
           found.set(requirement.ingredient.id, result?.results ?? []);
         }
-        setProgress(`Searched ${Math.min(offset + 4, requirements.length)} of ${requirements.length} ingredients…`);
+        setProgress(`Checked ${Math.min(offset + 8, requirements.length)} of ${requirements.length} with Tesco…`);
       }
       attemptId.current = newAttemptId();
     } catch (error) { report(error); setStage("idle"); setProgress(""); return; }
@@ -133,11 +136,9 @@ export function LivePanel({ requirements }: Props) {
         attemptId.current,
       );
       setBasket(result.basket);
+      setFailures(result.failed as Array<{ productId: string; error?: { message?: string } }>);
       writeLastSend(fingerprint);
       setStage("sent");
-      if (result.failed.length > 0) {
-        setProblem({ code: "PARTIAL", message: `${result.failed.length} line(s) were not added. See your basket.` });
-      }
     } catch (error) {
       report(error);
       setStage("matched");
@@ -193,111 +194,148 @@ export function LivePanel({ requirements }: Props) {
   if (reach === "absent") return <PlanningOnly />;
 
   return (
-    <section className="card retailer" aria-labelledby="live-head">
-      <div className="card__head">
-        <h2 id="live-head">Your real basket</h2>
-        <span className="label">{mode === "mock" ? "Mock retailer" : "Live"}</span>
-      </div>
+    <>
+      <header className="top">
+        <div>
+          <h1 className="top__title">Your Tesco basket</h1>
+          <p className="top__sub">{mode === "mock" ? "Practice shop — no real account" : "Matched to real products"}</p>
+        </div>
+      </header>
 
-      <div className="card__body retailer__body">
+      <main className="sheet">
         <ConnectionRow conn={conn} session={session} mode={mode} onCheck={checkConnection} />
 
         {problem && (
-          <p className={`notice notice--${problem.code === "PARTIAL" ? "warn" : "bad"}`}>
-            <strong>{labelFor(problem.code)}</strong> {problem.message}
-            {problem.code === "SESSION_EXPIRED" && (
-              <span className="notice__how"> Run <code>npm run connect</code>, click Connect in the Supermarket Tesco Connect Chrome extension, then refresh your Tesco basket.</span>
-            )}
+          <p className="notice notice--bad">
+            <b>{labelFor(problem.code)}</b> {problem.message}
+            {problem.code === "SESSION_EXPIRED" && ` ${CONNECT_HOW}`}
           </p>
         )}
 
-        {stage === "searching" && <p className="retailer__progress">{progress}</p>}
+        {stage === "searching" && <p className="progressline">{progress}</p>}
 
-        {match && stage !== "idle" && (
-          <>
-            <ul className="retailer__lines">
-              {match.choices.map((choice) => (
-                <li className="retailer__line" key={choice.requirement.ingredient.id}>
-                  <span className="retailer__name">{choice.product.title}</span>
-                  <span className="retailer__packs">
-                    {choice.packs} × {money(choice.product.price)}
-                  </span>
-                  <span className="retailer__need">
-                    for {formatQty(choice.requirement.qty, choice.requirement.ingredient)}
-                    {choice.surplus > 0 && ` · ${formatQty(choice.surplus, choice.requirement.ingredient)} spare`}
-                  </span>
-                  {choice.alternatives.length > 0 && <label className="retailer__need">Change product for {choice.requirement.ingredient.name}
-                    <select aria-label={`Tesco product for ${choice.requirement.ingredient.name}`} value={choice.product.id} disabled={stage === 'sending' || stage === 'sent'} onChange={e => replaceProduct(choice.requirement.ingredient.id, e.target.value)}>
-                      {[choice.product, ...choice.alternatives].map(p => <option key={p.id} value={p.id}>{p.title} — {money(p.price)}</option>)}
-                    </select>
-                  </label>}
-                </li>
-              ))}
-            </ul>
+        {stage === "sent" && basket && match ? (
+          <Outcome check={reconcile(match.choices, basket, failures)} total={basket.total} />
+        ) : (
+          match &&
+          stage !== "idle" && (
+            <>
+              {match.review.length > 0 && <AtRisk match={match} />}
 
-            {match.review.length > 0 && <AtRisk match={match} />}
+              <div className="sectionhead">
+                <span className="label">Matched at Tesco</span>
+                <span className="aisle__n">
+                  {match.choices.length} of {match.choices.length + match.review.length}
+                </span>
+              </div>
 
-            <p className="retailer__sum">
-              {match.choices.length} lines · about {money(estimated)} at listed prices
-            </p>
-          </>
+              <ul className="rows">
+                {match.choices.map((choice) => (
+                  <li className="row" key={choice.requirement.ingredient.id}>
+                    <div className="row__what">
+                      <span className="row__title">{choice.product.title}</span>
+                      <span className="row__covers">
+                        covers {formatQty(choice.requirement.qty, choice.requirement.ingredient)}{" "}
+                        {choice.requirement.ingredient.name.toLowerCase()}
+                        {choice.requirement.sources.length > 1 && ` · ${choice.requirement.sources.length} meals`}
+                      </span>
+                      {choice.alternatives.length > 0 && (
+                        <select
+                          aria-label={`Tesco product for ${choice.requirement.ingredient.name}`}
+                          value={choice.product.id}
+                          disabled={stage === "sending"}
+                          onChange={(e) => replaceProduct(choice.requirement.ingredient.id, e.target.value)}
+                        >
+                          {[choice.product, ...choice.alternatives].map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.title} — {money(product.price)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    <div className="row__cost">
+                      <span className="row__price">{money(choice.cost)}</span>
+                      <span className="row__packs">
+                        {choice.packs} pack{choice.packs === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
         )}
 
-        {basket && (
-          <div className="retailer__basket">
-            <p className="label">Read back from the retailer</p>
-            <ul>
-              {basket.items.map((item) => (
-                <li key={item.id}>
-                  {item.qty} × {item.title}
-                </li>
-              ))}
-              {basket.items.length === 0 && <li>Basket is empty.</li>}
-            </ul>
-            <p className="retailer__total">
-              Retailer total <strong>{money(basket.total)}</strong>
-              <span className="retailer__caveat">
-                Their figure, not ours — it includes delivery, offers and anything already in the basket.
-              </span>
-            </p>
-          </div>
-        )}
-
-        <div className="retailer__acts">
-          <button
-            className="btn"
-            type="button"
-            onClick={findProducts}
-            disabled={requirements.length === 0 || stage === "searching" || stage === "sending"}
-          >
-            {stage === "searching" ? "Searching…" : "Find live products"}
-          </button>
-          <button
-            className="btn btn--go"
-            type="button"
-            onClick={send}
-            disabled={!match || match.choices.length === 0 || stage !== "matched"}
-          >
-            {stage === "sending" ? "Adding…" : `Add ${match?.choices.length ?? 0} lines to my basket`}
-          </button>
+        <div className="act">
+          {stage === "sent" ? (
+            <button className="go" type="button" onClick={findProducts}>
+              Check Tesco again
+            </button>
+          ) : match ? (
+            <button
+              className="go"
+              type="button"
+              onClick={send}
+              disabled={match.choices.length === 0 || stage !== "matched"}
+            >
+              {stage === "sending" ? "Adding…" : `Add ${match.choices.length} items to Tesco`}
+              {stage === "matched" && <span className="go__note">{money(estimated)}</span>}
+            </button>
+          ) : (
+            <button
+              className="go"
+              type="button"
+              onClick={findProducts}
+              disabled={requirements.length === 0 || stage === "searching"}
+            >
+              {stage === "searching" ? "Checking Tesco…" : "Find these at Tesco"}
+            </button>
+          )}
+          <p className="act__foot">Nothing is ordered or paid for — you check out at Tesco</p>
         </div>
-
-        <p className="retailer__note">
-          Nothing is ever checked out or paid for. The session stays on this machine — the page asks
-          the local server, and only that server talks to the retailer.
-        </p>
-      </div>
-    </section>
+      </main>
+    </>
   );
 }
 
 /**
- * What the panel becomes on a static build — a hosted preview, or a phone.
+ * What the panel becomes on a static build — a hosted preview, or a phone
+ * away from home.
  *
  * Offering buttons here would be dishonest: the session is a file on one
- * machine and there is no way for this page to reach it. Better to say so than
- * to let someone tap "Add to my basket" and get a shrug.
+ * machine and there is no way for this page to reach it. Better to say so
+ * than to let someone tap "Add to Tesco" and get a shrug.
  */
+function PlanningOnly() {
+  return (
+    <>
+      <header className="top">
+        <div>
+          <h1 className="top__title">Your Tesco basket</h1>
+          <p className="top__sub">Planning only on this copy</p>
+        </div>
+      </header>
+      <main className="sheet">
+        <div className="panel panel--plain">
+          <p className="panel__head">
+            <Icon.info size={19} />
+            <span className="panel__title">Not available here</span>
+          </p>
+          <p className="row__covers">
+            Adding to a real Tesco basket needs the small server that holds your session, and nothing
+            is listening for this page. The dinners, the list and the quantities all work.
+          </p>
+          <p className="row__covers">
+            To shop for real, run <code>npm run start:host</code> on your computer and open the
+            address it prints from your phone, on the same WiFi.
+          </p>
+        </div>
+      </main>
+    </>
+  );
+}
+
 /**
  * Which meals the shop cannot cover, and what is missing from each.
  *
@@ -309,51 +347,122 @@ export function LivePanel({ requirements }: Props) {
 function AtRisk({ match }: { match: LiveMatch }) {
   const risks = mealsAtRisk(match);
   return (
-    <div className="risk">
-      <p className="risk__head">
-        <strong>{risks.length === 1 ? "One meal is short" : `${risks.length} meals are short`}</strong> — everything
-        else is ready to add.
+    <div className="panel">
+      <p className="panel__head">
+        <Icon.warning size={19} />
+        <span className="panel__title">
+          {risks.length === 1 ? "1 meal is short" : `${risks.length} meals are short`}
+        </span>
       </p>
-      <ul className="risk__meals">
+      <ul className="short">
         {risks.map((risk) => (
           <li key={risk.recipeId}>
-            <span className="risk__name">{risk.recipeName}</span>
-            <ul className="risk__bits">
-              {risk.problems.map((problem) => (
-                <li key={problem.ingredientName}>
-                  {problem.ingredientName} — {reasonText(problem.reason)}
-                </li>
-              ))}
-            </ul>
+            <details>
+              <summary>
+                <span className="short__name">{risk.recipeName}</span>
+                <span className="short__n">{risk.problems.length} missing</span>
+              </summary>
+              <ul className="short__bits">
+                {risk.problems.map((problem) => (
+                  <li key={problem.ingredientName}>
+                    {problem.ingredientName} — {reasonText(problem.reason)}
+                  </li>
+                ))}
+              </ul>
+            </details>
           </li>
         ))}
       </ul>
-      <p className="risk__what">Swap those meals on the Meals tab, or add the rest and pick these up yourself.</p>
+      <p className="short__bits">Swap them on the Meals tab, or add the rest and pick these up yourself.</p>
     </div>
   );
 }
 
-function PlanningOnly() {
+/**
+ * What actually landed in the basket, checked against what we meant to add.
+ *
+ * This is the moment the app is either trustworthy or not. Listing the whole
+ * basket answered the wrong question — half of it may be someone else's
+ * shopping — so the list here is ours, and anything missing or short is at
+ * the top, named by ingredient, because that is what you would go looking for.
+ */
+function Outcome({ check, total }: { check: Reconciliation; total: number }) {
+  const good = check.problems.length === 0;
+  // Packs, not lines: two tins of tomatoes is one thing on the list and two
+  // things in the basket, and the totals below are about the basket.
+  const packs = check.lines.reduce((sum, line) => sum + line.inBasket, 0);
+
   return (
-    <section className="card retailer" aria-labelledby="live-head">
-      <div className="card__head">
-        <h2 id="live-head">Your real basket</h2>
-        <span className="label">Planning only</span>
+    <>
+      <div className={`result${good ? "" : " result--bad"}`}>
+        <div className="result__head">
+          <span className="result__mark">{good ? <Icon.check size={24} /> : <Icon.warning size={22} />}</span>
+          <div>
+            <p className="result__count">
+              {good ? `All ${check.done} added` : `${check.done} of ${check.lines.length} added`}
+            </p>
+            <p className="result__when">Checked against your list, just now</p>
+          </div>
+        </div>
+        <div className="bar">
+          <div
+            className="bar__fill"
+            style={{ transform: `scaleX(${check.lines.length === 0 ? 0 : check.done / check.lines.length})` }}
+          />
+        </div>
       </div>
-      <div className="card__body retailer__body">
-        <p className="notice">
-          <strong>No local server answered.</strong> Adding to a real Tesco basket needs the small
-          server that holds your session, and nothing is listening for this page. Everything else
-          here — the meals, the consolidated list, the quantities and totals — works in full.
-        </p>
-        <p className="retailer__note">
-          On a hosted copy there is nothing to reach: your session stays on your own machine, which
-          is exactly why it cannot follow the app onto the web. To shop for real, run{" "}
-          <code>npm run server</code> and <code>npm run dev -- --host</code> on that machine, then
-          open its address from your phone on the same WiFi.
-        </p>
+
+      {!good && (
+        <div className="panel">
+          <p className="panel__title">
+            {check.problems.length === 1 ? "1 did not go in" : `${check.problems.length} did not go in`}
+          </p>
+          <ul className="misses">
+            {check.problems.map((line) => (
+              <li className="miss" key={line.productTitle}>
+                <Icon.cross size={18} />
+                <span>
+                  <span className="miss__name">{line.ingredientName}</span>
+                  <span className="miss__why">
+                    {line.state === "short"
+                      ? `Only ${line.inBasket} of ${line.wanted} packs went in`
+                      : "Not added"}
+                    {line.why && ` — ${line.why}`}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="panel panel--plain">
+        <div className="totals">
+          <p className="totals__row">
+            <span>
+              Your {check.done} item{check.done === 1 ? "" : "s"}
+              {packs !== check.done && <span className="totals__row--quiet"> · {packs} packs</span>}
+            </span>
+          </p>
+          {check.othersInBasket > 0 && (
+            <p className="totals__row totals__row--quiet">
+              <span>Already in the basket</span>
+              <span>
+                {check.othersInBasket} item{check.othersInBasket === 1 ? "" : "s"}
+              </span>
+            </p>
+          )}
+          <div className="totals__rule" />
+          <p className="totals__row">
+            <span style={{ fontWeight: 700 }}>Tesco total</span>
+            <span className="totals__big">{money(total)}</span>
+          </p>
+          <p className="totals__note">
+            Their figure — includes the minimum basket charge and anything added by someone else.
+          </p>
+        </div>
       </div>
-    </section>
+    </>
   );
 }
 
@@ -368,17 +477,39 @@ function ConnectionRow({
   mode: "live" | "mock";
   onCheck: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const what = describe(conn, session, mode);
-  return (
-    <div className={`conn conn--${what.tone}`}>
-      <p className="conn__state">
-        <span className="conn__dot" aria-hidden="true" />
-        <strong>{what.headline}</strong>
-      </p>
-      <p className="conn__detail">{what.detail}</p>
-      <button className="mini" type="button" onClick={onCheck} disabled={conn.state === "checking"}>
-        {conn.state === "checking" ? "Checking…" : "Check again"}
+
+  // When it is working there is nothing to say, so say almost nothing. The
+  // detail is one tap away for the times it stops working, which is when
+  // anybody actually wants it.
+  if (what.tone === "good" && !open) {
+    return (
+      <button className="conn conn--good" type="button" onClick={() => setOpen(true)}>
+        <span className="conn__dot" />
+        <span className="conn__what">{what.headline}</span>
+        <Icon.right size={17} />
       </button>
+    );
+  }
+
+  return (
+    <div className={`panel ${what.tone === "bad" ? "" : "panel--plain"}`}>
+      <p className="panel__head">
+        <span className="conn__dot" style={{ background: what.tone === "bad" ? "var(--price)" : "var(--accent)" }} />
+        <span className="panel__title">{what.headline}</span>
+      </p>
+      <p className="row__covers">{what.detail}</p>
+      <p style={{ display: "flex", gap: "1rem" }}>
+        <button className="more" type="button" onClick={onCheck} disabled={conn.state === "checking"}>
+          {conn.state === "checking" ? "Checking…" : "Check again"}
+        </button>
+        {what.tone === "good" && (
+          <button className="more" type="button" onClick={() => setOpen(false)}>
+            Hide
+          </button>
+        )}
+      </p>
     </div>
   );
 }
@@ -406,40 +537,28 @@ function describe(
   if (conn.state === "live") {
     return {
       tone: "good",
-      headline: "Connected to Tesco",
-      detail: `Read your basket at ${conn.at} — ${conn.items === 0 ? "it is empty" : `${conn.items} item${conn.items === 1 ? "" : "s"} in it`}. Anything you add will go here.`,
+      headline: `Connected · basket read ${conn.at}`,
+      detail: `${conn.items === 0 ? "Your basket is empty" : `${conn.items} item${conn.items === 1 ? "" : "s"} in it`}. Anything you add will go here.`,
     };
   }
   if (conn.state === "failed") {
     if (conn.code === "SESSION_EXPIRED") {
-      return {
-        tone: "bad",
-        headline: "Not connected — Tesco signed you out",
-        detail: `Tesco ended the session. ${CONNECT_HOW}`,
-      };
+      return { tone: "bad", headline: "Tesco signed you out", detail: CONNECT_HOW };
     }
     if (conn.code === "SESSION_MISSING") {
-      return {
-        tone: "bad",
-        headline: "Not connected — no Tesco session yet",
-        detail: CONNECT_HOW,
-      };
+      return { tone: "bad", headline: "Not connected to Tesco yet", detail: CONNECT_HOW };
     }
     if (conn.code === "NOT_CONFIGURED" || conn.code === "UNSAFE_CONFIG") {
       return {
         tone: "bad",
-        headline: "Not connected — Tesco is not set up",
-        detail: "The app does not yet know which Tesco requests to make. See docs/live-basket.md on the computer running it.",
+        headline: "Tesco is not set up",
+        detail: "The app does not yet know how to reach Tesco. See docs/live-basket.md on the computer running it.",
       };
     }
     return { tone: "bad", headline: "Not connected", detail: conn.message };
   }
   if (!session?.present) {
-    return {
-      tone: "bad",
-      headline: "Not connected — no Tesco session yet",
-      detail: CONNECT_HOW,
-    };
+    return { tone: "bad", headline: "Not connected to Tesco yet", detail: CONNECT_HOW };
   }
   return { tone: "wait", headline: "Not checked yet", detail: "Tap Check again to see whether Tesco still accepts the session." };
 }
@@ -449,22 +568,17 @@ function labelFor(code: string): string {
     case "SESSION_EXPIRED":
       return "Signed out.";
     case "SESSION_MISSING":
-      return "No session.";
+      return "Not connected.";
     case "OFFLINE":
-      return "Local server not running.";
+      return "Server not running.";
     case "NOT_CONFIGURED":
-      return "Retailer not configured.";
-    case "UNSAFE_CONFIG":
-      return "Unsafe configuration.";
+      return "Not set up.";
     case "RATE_LIMITED":
       return "Too fast.";
-    case "PARTIAL":
-      return "Partly added.";
     default:
-      return "Retailer problem.";
+      return "Tesco problem.";
   }
 }
-
 
 function readLastSend(): { fingerprint: string; at: string } | null {
   try {

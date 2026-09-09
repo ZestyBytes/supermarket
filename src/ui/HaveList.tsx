@@ -1,5 +1,7 @@
+import { byAisle } from "../domain/aisles";
 import type { Requirement } from "../domain/types";
 import { formatQty } from "../domain/units";
+import { Icon } from "./Icon";
 
 interface Props {
   requirements: Requirement[];
@@ -8,66 +10,69 @@ interface Props {
 }
 
 /**
- * The consolidated list, shown for one purpose: ticking off what is already in
- * the cupboard. Everything else about it is settled by then, so it is a tab
- * rather than something in the way.
+ * The consolidated list, grouped the way a supermarket is laid out.
+ *
+ * One alphabetical column means walking the shop twice. Every ingredient
+ * already carries an aisle, so grouping costs nothing and turns the list into
+ * something you can follow from the door to the till. Ticking is the only
+ * thing to do here: everything else about the list is already settled.
  */
 export function HaveList({ requirements, pantry, onToggle }: Props) {
-  const needed = requirements.filter((r) => !pantry.has(r.ingredient.id));
-  const have = requirements.filter((r) => pantry.has(r.ingredient.id));
-
   if (requirements.length === 0) {
-    return <p className="empty">Choose some meals and the list builds itself.</p>;
+    return <p className="empty">Choose some dinners and the list builds itself.</p>;
   }
+
+  const groups = byAisle(requirements);
+  const ticked = requirements.filter((r) => pantry.has(r.ingredient.id)).length;
 
   return (
     <>
-      <p className="listintro">
-        Tick anything you already have. {needed.length} to buy
-        {have.length > 0 && `, ${have.length} already in`}.
+      <p className="hint">
+        <Icon.info size={17} />
+        <span>
+          Tick anything already in the cupboard — <b>{ticked} ticked</b>
+        </span>
       </p>
 
-      <ul className="ticks">
-        {needed.map((requirement) => (
-          <Tick key={requirement.ingredient.id} requirement={requirement} have={false} onToggle={onToggle} />
-        ))}
-      </ul>
+      {groups.map((group) => (
+        <section className="aisle" key={group.aisle}>
+          <h2 className="aisle__head">
+            <span className="label">{group.name}</span>
+            <span className="aisle__rule" />
+            <span className="aisle__n">{group.items.filter((i) => !pantry.has(i.ingredient.id)).length}</span>
+          </h2>
 
-      {have.length > 0 && (
-        <>
-          <p className="label listlabel">Already have</p>
           <ul className="ticks">
-            {have.map((requirement) => (
-              <Tick key={requirement.ingredient.id} requirement={requirement} have onToggle={onToggle} />
-            ))}
+            {group.items.map((requirement) => {
+              const have = pantry.has(requirement.ingredient.id);
+              const meals = requirement.sources.map((s) => s.recipeName);
+              return (
+                <li className={`tick${have ? " tick--have" : ""}`} key={requirement.ingredient.id}>
+                  <label>
+                    <input type="checkbox" checked={have} onChange={() => onToggle(requirement.ingredient.id)} />
+                    <span className="box">
+                      <Icon.check size={16} />
+                    </span>
+                    <span className="tick__text">
+                      <span className="tick__name">{requirement.ingredient.name}</span>
+                      <span className="tick__for">
+                        {have
+                          ? "already have"
+                          : meals.length > 2
+                            ? `for ${meals.slice(0, 2).join(", ")} +${meals.length - 2}`
+                            : `for ${meals.join(", ")}`}
+                      </span>
+                    </span>
+                    {!have && (
+                      <span className="tick__qty">{formatQty(requirement.qty, requirement.ingredient)}</span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
-        </>
-      )}
+        </section>
+      ))}
     </>
-  );
-}
-
-function Tick({
-  requirement,
-  have,
-  onToggle,
-}: {
-  requirement: Requirement;
-  have: boolean;
-  onToggle: (id: string) => void;
-}) {
-  const meals = requirement.sources.map((s) => s.recipeName);
-  return (
-    <li className={`tick${have ? " tick--have" : ""}`}>
-      <label>
-        <input type="checkbox" checked={have} onChange={() => onToggle(requirement.ingredient.id)} />
-        <span className="tick__body">
-          <span className="tick__name">{requirement.ingredient.name}</span>
-          <span className="tick__qty">{formatQty(requirement.qty, requirement.ingredient)}</span>
-          {meals.length > 1 && <span className="tick__for">for {meals.length} meals</span>}
-          {meals.length === 1 && <span className="tick__for">for {meals[0]}</span>}
-        </span>
-      </label>
-    </li>
   );
 }
