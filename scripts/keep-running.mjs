@@ -110,9 +110,29 @@ async function lockHash() {
 }
 
 /** Pull if GitHub is ahead. Returns true when something actually changed. */
+/**
+ * The branch origin actually publishes, not the one we happen to be on.
+ *
+ * Falls back to main, which is where this project lives, when the remote will
+ * not say.
+ */
+async function defaultBranch() {
+  const head = await git('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD');
+  if (head.ok && head.out) return head.out.replace(/^origin\//, '');
+  return 'main';
+}
+
 async function update() {
   const branch = await git('rev-parse', '--abbrev-ref', 'HEAD');
   if (!branch.ok) return false;
+
+  // Sitting on another branch, or on no branch at all, is the quiet way this
+  // goes wrong: every check passes, nothing is behind, and the app stays weeks
+  // out of date because it is watching a branch nobody pushes to.
+  if (branch.out === 'HEAD') {
+    say('This folder is not on a branch, so there is nothing to update from. Run: git checkout main');
+    return false;
+  }
 
   const fetched = await git('fetch', '--quiet', 'origin', branch.out);
   if (!fetched.ok) {
@@ -122,7 +142,20 @@ async function update() {
 
   const here = await git('rev-parse', 'HEAD');
   const there = await git('rev-parse', `origin/${branch.out}`);
-  if (!here.ok || !there.ok || here.out === there.out) return false;
+  if (!here.ok || !there.ok) return false;
+
+  if (here.out === there.out) {
+    const main = await defaultBranch();
+    if (branch.out !== main) {
+      const ahead = await git('rev-list', '--count', `HEAD..origin/${main}`);
+      const behind = Number(ahead.out || 0);
+      if (behind > 0) {
+        say(`This folder is on "${branch.out}", which is up to date, but origin/${main} is ${behind} commits ahead.`);
+        say(`Nothing here will change until you run: git checkout ${main}`);
+      }
+    }
+    return false;
+  }
 
   if (!(await clean())) {
     say('New version on GitHub, but this folder has edits. Leaving it alone.');
@@ -236,6 +269,11 @@ async function answering() {
 
 async function main() {
   say('Supermarket supervisor started. Ctrl+C stops it and the app together.');
+  say(`Folder: ${root}`);
+  const onBranch = await git('rev-parse', '--abbrev-ref', 'HEAD');
+  const running = await git('log', '-1', '--pretty=%h %s');
+  say(`Branch: ${onBranch.out || 'unknown'}`);
+  say(`Running: ${running.out || 'unknown'}`);
   say(`Checking GitHub every ${CHECK_MS / 60000} minutes.`);
 
   await update();
