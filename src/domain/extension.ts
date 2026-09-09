@@ -57,7 +57,7 @@ async function borrowHeaders(): Promise<TescoHeaders | undefined> {
     return held;
   }
 
-  for (let wait = 0; wait < 12; wait++) {
+  for (let wait = 0; wait < 6; wait++) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     const now = await ask();
     if (now?.authorization) return now;

@@ -44,10 +44,14 @@ export function createTescoTransport({
   fetch?: typeof globalThis.fetch;
 }): Transport {
   async function gql<T>(operations: Array<{ operationName: string; query: string; variables: unknown }>): Promise<T[]> {
+    // Try it, whether or not a token was borrowed.
+    //
+    // Refusing to ask because we have not seen a Bearer token was a
+    // precondition of my own invention: the browser is sending Tesco's own
+    // cookies either way, and Tesco is the only thing that actually knows
+    // whether that is enough. Asking costs one request and replaces a guess
+    // with an answer; refusing to ask guarantees the answer is never found.
     const borrowed = await headers();
-    if (!borrowed?.authorization) {
-      throw new TescoError("SESSION_MISSING", "Open Tesco in a tab and sign in, then try again.");
-    }
 
     const response = await doFetch(XAPI, {
       method: "POST",
@@ -56,9 +60,9 @@ export function createTescoTransport({
       credentials: "include",
       headers: {
         "content-type": "application/json",
-        authorization: borrowed.authorization,
-        ...(borrowed["x-apikey"] ? { "x-apikey": borrowed["x-apikey"] } : {}),
-        ...(borrowed["customer-uuid"] ? { "customer-uuid": borrowed["customer-uuid"] } : {}),
+        ...(borrowed?.authorization ? { authorization: borrowed.authorization } : {}),
+        ...(borrowed?.["x-apikey"] ? { "x-apikey": borrowed["x-apikey"] } : {}),
+        ...(borrowed?.["customer-uuid"] ? { "customer-uuid": borrowed["customer-uuid"] } : {}),
       },
       body: JSON.stringify(operations),
     });

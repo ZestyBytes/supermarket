@@ -43,9 +43,9 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
 
         {state.problem && <p className="gate__why">{state.problem}</p>}
 
-        {saw && (
+        {direct && !offline && (
           <dl className="gate__saw">
-            {Object.entries(saw).map(([what, value]) => (
+            {Object.entries(saw ?? { requests: "none seen yet" }).map(([what, value]) => (
               <div key={what}>
                 <dt>{plainly(what)}</dt>
                 <dd>{String(value)}</dd>

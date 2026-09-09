@@ -34,6 +34,18 @@ chrome.action.onClicked.addListener(async () => {
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return;
 
+  // Sent by the watcher living in Tesco's own page, which sees requests a
+  // sleeping background worker misses.
+  if (message?.type === 'tesco-headers-seen') {
+    const headers = message.headers || {};
+    if (/^Bearer\s+/i.test(headers.authorization || '')) {
+      chrome.storage.session.set({ tescoHeaders: headers }).then(() =>
+        note({ requests: 'yes, from the Tesco page', sawHeaders: Object.keys(headers).join(', '), token: 'captured' }),
+      );
+    }
+    return;
+  }
+
   if (message?.type === 'tesco-seen') {
     chrome.storage.session.get('tescoSeen').then(({ tescoSeen }) => reply({ seen: tescoSeen ?? {} }));
     return true;
