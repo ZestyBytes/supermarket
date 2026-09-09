@@ -67,6 +67,8 @@ export interface BasketState {
   sendNow: () => void;
   /** How many lines would go in, and how many would come out, if you did. */
   outstanding: { adding: number; removing: number };
+  /** Ingredients in the basket that the list no longer wants. */
+  leaving: Set<string>;
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -105,6 +107,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
   // Without it, changing the week after adding turns your own shopping into
   // "someone else put this here", which is a confusing thing to be told.
   const mine = useRef(new Set<string>());
+  // Which ingredient each product went in for. Once something is ticked off as
+  // already in the cupboard it leaves the requirements, and with them the only
+  // way back from the product sitting in the basket to the line that put it
+  // there, which is what a list has to name to say it is coming out.
+  const boughtFor = useRef(new Map<string, string>());
   const attempt = useRef(newAttemptId());
 
   const key = requirements.map((r) => `${r.ingredient.id}:${r.qty}`).join("|");
@@ -314,7 +321,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
         const result = await addToBasket(change.set, newAttemptId(), true);
         latest = result.basket;
         const held = new Map(result.basket.items.map((item) => [item.id, item.qty]));
-        for (const line of change.set) if ((held.get(line.productId) ?? 0) > 0) mine.current.add(line.productId);
+        for (const line of change.set) {
+          if ((held.get(line.productId) ?? 0) > 0) mine.current.add(line.productId);
+          const choice = match?.choices.find((c) => c.product.id === line.productId);
+          if (choice) boughtFor.current.set(line.productId, choice.requirement.ingredient.id);
+        }
       }
 
       if (change.remove.length > 0) {
@@ -389,6 +400,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
       const change = reconcileBasket(match, basket, mine.current);
       return { adding: change.set.length, removing: change.remove.length };
     })(),
+    leaving: new Set(
+      reconcileBasket(match, basket, mine.current)
+        .remove.map((productId) => boughtFor.current.get(productId))
+        .filter((id): id is string => id !== undefined),
+    ),
   };
 }
 

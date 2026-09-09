@@ -16,6 +16,10 @@ interface Props {
   onToggle: (ingredientId: string) => void;
   /** Buy a different Tesco product for this ingredient. */
   onSwap: (ingredientId: string, productId: string) => void;
+  /** Ingredients in the basket that this list no longer wants. */
+  leaving: Set<string>;
+  /** True while a send is actually happening. */
+  syncing: boolean;
 }
 
 /**
@@ -28,7 +32,7 @@ interface Props {
  * beside it means it is in the basket, and a second line appears only when
  * there is something you could not have guessed.
  */
-export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap }: Props) {
+export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap, leaving, syncing }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   if (requirements.length === 0) {
     return <p className="empty">Choose some dinners and the list builds itself.</p>;
@@ -91,11 +95,10 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onS
                       )}
                     </Body>
 
-                    {status?.state === "added" && (
-                      <span className="tick__in" title="In your Tesco basket">
-                        <Icon name="check" size={15} />
-                      </span>
-                    )}
+                    <Mark
+                      state={leaving.has(requirement.ingredient.id) ? "out" : have ? undefined : status?.state}
+                      syncing={syncing}
+                    />
                     {!have && (
                       <span className="tick__qty">
                         {status?.cost != null ? (
@@ -187,6 +190,43 @@ function Body({
     <button className="tick__text tick__text--pick" type="button" aria-expanded={picking} aria-label={label} onClick={onPick}>
       {children}
     </button>
+  );
+}
+
+/**
+ * One badge, saying where this line stands with Tesco.
+ *
+ * A bare tick beside a price was doing the work of five different answers and
+ * looked like a decoration. A filled circle reads as a state at a glance, and
+ * the glyph inside says which one, so colour is never carrying it alone.
+ */
+function Mark({ state, syncing }: { state?: ItemStatus["state"] | "out"; syncing: boolean }) {
+  if (!state) return null;
+
+  if (syncing && (state === "ready" || state === "out")) {
+    return (
+      <span className="mark mark--busy" title="Updating your Tesco basket">
+        <span className="spinner" />
+      </span>
+    );
+  }
+
+  const look: Record<string, { className: string; icon: "check" | "cross" | "minus" | "plus" | "clock"; title: string }> = {
+    added: { className: "mark--in", icon: "check", title: "In your Tesco basket" },
+    ready: { className: "mark--todo", icon: "plus", title: "Will go in when you press the button" },
+    out: { className: "mark--out", icon: "minus", title: "Will come out when you press the button" },
+    failed: { className: "mark--bad", icon: "cross", title: "Did not go in" },
+    missing: { className: "mark--bad", icon: "cross", title: "Tesco has nothing for this" },
+    checking: { className: "mark--busy", icon: "clock", title: "Still looking" },
+  };
+
+  const how = look[state];
+  if (!how) return null;
+
+  return (
+    <span className={`mark ${how.className}`} title={how.title}>
+      <Icon name={how.icon} size={13} />
+    </span>
   );
 }
 

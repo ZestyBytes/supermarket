@@ -642,3 +642,22 @@ button { touch-action:manipulation; }
 .photo-state--in { color: var(--accent); }
 .photo-state--short { color: var(--price); }
 .photo-state--working { color: var(--muted); }
+
+/* Where a line stands with Tesco: a filled circle, with a glyph inside so the
+   colour is never the only thing carrying it. */
+.mark {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; color: #FFF;
+}
+.mark--in { background: #2E7D53; }
+.mark--bad { background: var(--price); }
+.mark--out { background: #B77A16; }
+.mark--todo { background: transparent; color: var(--faint); border: 1.5px dashed #C9C3B6; }
+.mark--busy { background: var(--sunk); color: var(--muted); }
+.mark--busy .spinner { width: 13px; height: 13px; border-width: 2px; }
+
+/* The answer, not the arithmetic: done, partly done, or wrong. */
+.flag { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 13px 16px; border-radius: 26px; font-size: 14px; font-weight: 650; text-wrap: balance; }
+.flag--good { background: #E4F0E8; color: #24603F; }
+.flag--part { background: #FBF0DC; color: #8A5B10; }
+.flag--bad { background: var(--price-soft); color: var(--price); }
