@@ -1,7 +1,9 @@
 import type { Ingredient } from "../domain/types";
+import { FAVOURITE_INGREDIENTS } from './favouriteIngredients';
 
 /** Every ingredient the recipes can call for, in the unit it is counted in. */
 export const INGREDIENTS: Ingredient[] = [
+  ...FAVOURITE_INGREDIENTS,
   // Produce
   { id: "onion",        name: "Onions",              unit: "each", aisle: "produce" },
   { id: "garlic",       name: "Garlic",              unit: "each", aisle: "produce", countNoun: "clove", staple: true },

@@ -59,17 +59,16 @@ export function App() {
     setPlan((current) => [...current, ...extra]);
   }
 
-  return (
-    <div className="app">
-      {tab === "meals" && (
-        <>
-          <header className="top">
-            <h1 className="top__title">This week</h1>
-          </header>
+      <main className="sheet">
+        {tab === 'list' && <div className="fresh-heading"><h1>Here’s what you’ll need.</h1><p>A single list for all your dinners.</p></div>}
+        {tab === 'shop' && <div className="fresh-heading"><h1>Your Tesco shop.</h1><p>Review your products before adding them.</p></div>}
+        {tab === "meals" && (
+          <>
+            <WeekBar
+              plan={plan}
+              recipes={RECIPES}
+              servings={servings}
 
-          <main className="sheet">
-            <WeekCard
-              chosen={plan.length}
               wanted={wanted}
               servings={servings}
               onWanted={setWanted}
@@ -138,16 +137,11 @@ export function App() {
 
       <div className="pad" />
 
+      {tab !== 'shop' && <div className="fresh-next"><button disabled={plan.length===0} onClick={()=>setTab(tab==='meals'?'list':'shop')}><span><strong>{tab==='meals'?'Review ingredients':'Review Tesco products'}</strong><small>{tab==='meals'?`${plan.length} dinners selected`:`${toBuy.length} ingredients to buy`}</small></span><Icon name="arrow"/></button></div>}
       <nav className="tabs" aria-label="Sections">
-        <TabButton id="meals" now={tab} go={setTab} label="Meals" note={plan.length || undefined}>
-          <Icon.meals size={23} />
-        </TabButton>
-        <TabButton id="list" now={tab} go={setTab} label="List" note={toBuy.length || undefined}>
-          <Icon.list size={23} />
-        </TabButton>
-        <TabButton id="shop" now={tab} go={setTab} label="Tesco">
-          <Icon.basket size={23} />
-        </TabButton>
+        <Tab id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
+        <Tab id="list" now={tab} go={setTab} icon="list" label="Ingredients" />
+        <Tab id="shop" now={tab} go={setTab} icon="shop" label="Tesco" />
       </nav>
     </div>
   );
@@ -170,8 +164,9 @@ function TabButton({
 }) {
   return (
     <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
-      {children}
-      <span>{label}</span>
+      {children ?? <span className="tab__icon" aria-hidden="true"><Icon name={icon} /></span>}
+      <span className="tab__label">{label}</span>
+      {note != null && <span className="tab__note">{note}</span>}
       {note != null && <span className="tab__note">{note}</span>}
     </button>
   );

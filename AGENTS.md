@@ -18,3 +18,6 @@
 - Matching/UX repair: ingredient-only shopping list on meal plan; sample basket/slots confined to Sample catalogue. LivePanel alternatives dropdowns, failed-search reporting, incomplete-plan submission block, match reset on plan changes. Batch read retries and two-minute cache; patch also adds 15s request timeouts. Tests:154. Avoid claiming availability from tests; validate live browser result.
 
 - Latest browser result: all26 default-plan ingredients matched, zero unresolved, ~£63.92 live estimate. Product override tested total£67.13 then restored£63.92. No whole-plan basket write during matching repair.155 tests pass. App running via npm start; browser result kept for review.
+
+## Fresh Market design — 9 September 2026
+The user approved concept A. Implemented on codex/fresh-market-mobile: photo grid, compact people/dinner selectors, selected meal strip, search, accessible add/remove buttons, persistent ingredient CTA, SVG navigation, and green/white palette. PRODUCT.md and DESIGN.md record the approved brief. MealPhoto uses public/images/meals.png, generated illustrative photography. Tests180 pass, build pass, detector no findings. Browser verified mobile390 and desktop1280, serving scaling and cupboard exclusion. No Tesco basket writes during design work. This does not solve remote API hosting; do not claim it does.

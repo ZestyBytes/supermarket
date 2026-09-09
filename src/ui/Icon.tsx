@@ -1,11 +1,3 @@
-/**
- * The app's icons, drawn rather than typed.
- *
- * Emoji were standing in for icons: they render differently on every device,
- * cannot take the interface's colour, and are the single loudest signal that
- * something was thrown together. These are one family — 24px grid, round
- * caps, 1.8 stroke — so they sit together and inherit `currentColor`.
- */
 interface Props {
   size?: number;
   stroke?: number;
@@ -32,7 +24,47 @@ function Svg({ size = 22, stroke = 1.8, className, children }: Props & { childre
   );
 }
 
-export const Icon = {
+const glyphs: Record<string, string> = {
+  plus: "M12 5v14M5 12h14",
+  check: "m5 12 4 4L19 6",
+  meals: "M5 3v7m4-7v7M3 3v5a4 4 0 0 0 8 0V3M7 12v9M18 3c-4 4-4 9 0 9h2M20 3v18",
+  list: "M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1",
+  shop: "M3 8h18l-2 12H5L3 8Zm5 0 4-6 4 6",
+  arrow: "m9 5 7 7-7 7",
+  clock: "M12 7v5l3 2",
+  search: "m16 16 5 5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
+};
+
+function IconGlyph({ name, ...props }: Props & { name?: string }) {
+  const stroke = props.stroke ?? 1.8;
+  const d = glyphs[name ?? "plus"] ?? glyphs.plus;
+
+  if (name === "clock") {
+    return (
+      <Svg {...props} stroke={stroke}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </Svg>
+    );
+  }
+
+  if (name === "search") {
+    return (
+      <Svg {...props} stroke={stroke}>
+        <circle cx="11" cy="11" r="7" />
+        <path d="M20 20l-3.5-3.5" />
+      </Svg>
+    );
+  }
+
+  return (
+    <Svg {...props} stroke={stroke}>
+      <path d={d} />
+    </Svg>
+  );
+}
+
+export const Icon = Object.assign(IconGlyph, {
   meals: (p: Props) => (
     <Svg {...p}>
       <path d="M6 3v8a2 2 0 0 0 4 0V3" />
@@ -125,4 +157,5 @@ export const Icon = {
       <path d="M9 7h8v8" />
     </Svg>
   ),
-};
+});
+

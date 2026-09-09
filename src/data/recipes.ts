@@ -1,7 +1,9 @@
 import type { Recipe } from "../domain/types";
+import { FAVOURITE_RECIPES } from './favouriteRecipes';
 
 /** Quantities are written for the servings on each recipe and scaled from there. */
 export const RECIPES: Recipe[] = [
+  ...FAVOURITE_RECIPES,
   {
     id: "bolognese",
     name: "Spaghetti Bolognese",
