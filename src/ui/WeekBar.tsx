@@ -5,41 +5,17 @@ import { Icon } from "./Icon";
 interface Props {
   plan: PlannedMeal[];
   recipes: Recipe[];
-  servings: number;
   wanted: number;
-  onServings: (n: number) => void;
-  onWanted: (n: number) => void;
   onSurprise: () => void;
   onRemove: (key: string) => void;
 }
 
-export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted, onSurprise, onRemove }: Props) {
+export function WeekBar({ plan, recipes, wanted, onSurprise, onRemove }: Props) {
   return (
     <section className="fresh-week" aria-label="This week">
       <div className="fresh-controls">
-        <label>
-          <span className="sr">People</span>
-          <select aria-label="People" value={servings} onChange={(event) => onServings(Number(event.target.value))}>
-            {Array.from({ length: 12 }, (_, index) => (
-              <option key={index} value={index + 1}>
-                {index + 1} {index === 0 ? "person" : "people"}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="sr">Dinners this week</span>
-          <select aria-label="Dinners this week" value={wanted} onChange={(event) => onWanted(Number(event.target.value))}>
-            {Array.from({ length: 14 }, (_, index) => (
-              <option key={index} value={index + 1}>
-                {index + 1} dinners
-              </option>
-            ))}
-          </select>
-        </label>
-
         <button type="button" className="fresh-pick" onClick={onSurprise}>
+          <Icon name="retry" size={16} />
           Pick for me
         </button>
       </div>

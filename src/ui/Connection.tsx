@@ -9,7 +9,7 @@ import { Icon } from "./Icon";
  * thin green line you stop noticing; when it is not, it is the only thing
  * worth reading, and it says exactly what to do.
  */
-export function Connection({ state }: { state: BasketState }) {
+export function Connection({ state, onOpenSettings }: { state: BasketState; onOpenSettings: () => void }) {
   const what = describe(state);
 
   return (
@@ -20,9 +20,9 @@ export function Connection({ state }: { state: BasketState }) {
         {what.detail && <span className="link__detail">{what.detail}</span>}
       </span>
       {what.tone === "bad" && (
-        <button className="link__again" type="button" onClick={state.recheck}>
-          <Icon name="retry" size={16} />
-          Retry
+        <button className="link__again" type="button" onClick={onOpenSettings}>
+          <Icon name="settings" size={16} />
+          Fix
         </button>
       )}
     </div>

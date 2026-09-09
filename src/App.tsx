@@ -12,12 +12,14 @@ import { useBasket } from "./ui/useBasket";
 import { HaveList } from "./ui/HaveList";
 import { Connection } from "./ui/Connection";
 import { AddToBasket } from "./ui/AddToBasket";
+import { Settings } from "./ui/Settings";
+import { Gate } from "./ui/Gate";
 import { Icon } from "./ui/Icon";
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
 const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
 
-type Tab = "meals" | "list";
+type Tab = "meals" | "list" | "settings";
 
 export function App() {
   const [plan, setPlan] = usePersistentState<PlannedMeal[]>("supermarket.plan", []);
@@ -25,6 +27,7 @@ export function App() {
   const [servings, setServings] = usePersistentState<number>("supermarket.servings", 4);
   const [wanted, setWanted] = usePersistentState<number>("supermarket.wanted", 5);
   const [tab, setTab] = useState<Tab>("meals");
+  const [ignoreGate, setIgnoreGate] = useState(false);
 
   const pantry = useMemo(() => new Set(pantryIds), [pantryIds]);
   const requirements = useMemo(() => consolidate(plan, CATALOGUE), [plan]);
@@ -62,19 +65,21 @@ export function App() {
     ]);
   }
 
+  // Only a failure earns the whole screen. See Gate for why not the check.
+  const broken = basket.phase === "offline" || basket.phase === "disconnected";
+  if (!broken && ignoreGate) setIgnoreGate(false);
+  if (broken && !ignoreGate) return <Gate state={basket} onIgnore={() => setIgnoreGate(true)} />;
+
   return (
     <div>
-      <Connection state={basket} />
+      {tab !== "settings" && <Connection state={basket} onOpenSettings={() => setTab("settings")} />}
 
       {tab === "meals" && (
         <main className="sheet">
           <WeekBar
             plan={plan}
             recipes={RECIPES}
-            servings={servings}
             wanted={wanted}
-            onWanted={setWanted}
-            onServings={setServingsEverywhere}
             onSurprise={surprise}
             onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
           />
@@ -104,13 +109,28 @@ export function App() {
         </main>
       )}
 
+      {tab === "settings" && (
+        <main className="sheet">
+          <Settings
+            state={basket}
+            servings={servings}
+            wanted={wanted}
+            onServings={setServingsEverywhere}
+            onWanted={setWanted}
+            picked={plan.length}
+            onClear={() => setPlan([])}
+          />
+        </main>
+      )}
+
       <div className="pad" />
 
-      <AddToBasket state={basket} meals={plan.length} />
+      {tab !== "settings" && <AddToBasket state={basket} meals={plan.length} />}
 
       <nav className="tabs" aria-label="Sections">
         <TabButton id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
         <TabButton id="list" now={tab} go={setTab} icon="list" label="Shopping list" note={toBuy.length || undefined} />
+        <TabButton id="settings" now={tab} go={setTab} icon="settings" label="Settings" alert={broken} />
       </nav>
     </div>
   );
@@ -123,13 +143,15 @@ function TabButton({
   icon,
   label,
   note,
+  alert,
 }: {
   id: Tab;
   now: Tab;
   go: (tab: Tab) => void;
-  icon: "meals" | "list";
+  icon: "meals" | "list" | "settings";
   label: string;
   note?: number;
+  alert?: boolean;
 }) {
   return (
     <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
@@ -138,6 +160,7 @@ function TabButton({
       </span>
       <span className="tab__label">{label}</span>
       {note != null && <span className="tab__note">{note}</span>}
+      {alert && <span className="tab__alert" aria-label="Needs attention" />}
     </button>
   );
 }
