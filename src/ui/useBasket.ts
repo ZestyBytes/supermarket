@@ -7,7 +7,7 @@ import {
   searchBatch,
   type RetailerBasket,
 } from "../domain/retailerClient";
-import { chooseLiveProducts, searchTermFor, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
+import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
 import { newAttemptId } from "../domain/ids";
 import type { Requirement } from "../domain/types";
 
@@ -29,6 +29,8 @@ export interface ItemStatus {
   packs?: number;
   cost?: number;
   why?: string;
+  /** Everything else Tesco offered, so a wrong pick can be corrected. */
+  choices?: RetailerProduct[];
 }
 
 export interface BasketState {
@@ -45,6 +47,8 @@ export interface BasketState {
   estimated: number;
   add: () => void;
   recheck: () => void;
+  /** Buy a different product for this ingredient. Ignored once it is bought. */
+  swap: (ingredientId: string, productId: string) => void;
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -149,6 +153,18 @@ export function useBasket(requirements: Requirement[]): BasketState {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, phase === "ready"]);
 
+  const swap = useCallback((ingredientId: string, productId: string) => {
+    setMatch((current) => {
+      if (!current) return current;
+      const choices = current.choices.map((choice) => {
+        if (choice.requirement.ingredient.id !== ingredientId) return choice;
+        const product = choice.candidates.find((candidate) => candidate.id === productId);
+        return product ? swapChoice(choice, product) : choice;
+      });
+      return { ...current, choices };
+    });
+  }, []);
+
   const add = useCallback(async () => {
     if (!match || match.choices.length === 0) return;
     setPhase("adding");
@@ -199,7 +215,16 @@ export function useBasket(requirements: Requirement[]): BasketState {
 
     if (done) return { ingredientId: id, state: done, product: choice?.product, packs: choice?.packs, cost: choice?.cost, why: failures.get(id) };
     if (missing) return { ingredientId: id, state: "missing" };
-    if (choice) return { ingredientId: id, state: "ready", product: choice.product, packs: choice.packs, cost: choice.cost };
+    if (choice) {
+      return {
+        ingredientId: id,
+        state: "ready",
+        product: choice.product,
+        packs: choice.packs,
+        cost: choice.cost,
+        choices: choice.candidates,
+      };
+    }
     return { ingredientId: id, state: "checking" };
   });
 
@@ -217,5 +242,6 @@ export function useBasket(requirements: Requirement[]): BasketState {
     estimated: match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0,
     add,
     recheck: connect,
+    swap,
   };
 }

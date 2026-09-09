@@ -13,7 +13,7 @@ describe('Favourite dinner library',()=>{
   for(const recipe of RECIPES){
    const photo=mealPhoto(recipe.id);
    expect(photo,recipe.name).not.toBeNull();
-   expect(photo!.file).toMatch(/^(meals\.png|favourites-[1-4]\.webp)$/);
+   expect(photo!.file).toMatch(/^(meals|favourites-[1-4])\.webp$/);
    for(const line of recipe.ingredients){
     expect(line.qty).toBeGreaterThan(0);
     expect(()=>toCanonical(line.qty,line.unit,INGREDIENTS.find(i=>i.id===line.ingredientId)!)).not.toThrow();

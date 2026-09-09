@@ -20,6 +20,13 @@ export interface LiveChoice {
   surplus: number;
   alternatives: RetailerProduct[];
   /**
+   * Everything Tesco returned for this ingredient, in the order it returned
+   * them, including what `relevantProduct` threw out. When our pick is wrong
+   * the right answer is often exactly what the filter rejected, so a person
+   * correcting us has to be able to see the lot.
+   */
+  candidates: RetailerProduct[];
+  /**
    * Set when the pack maths could not be done exactly and one pack was taken
    * as enough: the title did not say a size, or said it in a different
    * measure than the recipe. Worth showing quietly; not worth refusing over.
@@ -107,6 +114,7 @@ export function chooseLiveProducts(
         cost: Math.round(pick.price * 100) / 100,
         surplus: 0,
         alternatives: others,
+        candidates,
         assumed: readable ? "unit" : "size",
       });
       continue;
@@ -121,6 +129,7 @@ export function chooseLiveProducts(
       cost: best.cost,
       surplus: best.surplus,
       alternatives: rest.map((entry) => entry.product),
+      candidates,
     });
   }
 
@@ -165,4 +174,45 @@ export function submissionFingerprint(choices: LiveChoice[]): string {
     .map((choice) => `${choice.product.id}:${choice.packs}`)
     .sort()
     .join("|");
+}
+
+
+/**
+ * The same choice, made with a different product.
+ *
+ * Search is a guess, and now and then it is a bad one: ask for gravy granules
+ * and Tesco may hand back chicken breasts. Rather than teach the matcher every
+ * such case, let the person looking at the list say which product it should
+ * have been, and do the pack maths again around their answer.
+ */
+export function swapChoice(choice: LiveChoice, product: RetailerProduct): LiveChoice {
+  const requirement = choice.requirement;
+  const size = parsePackSize(product.size ? `${product.title} ${product.size}` : product.title);
+  const others = choice.candidates.filter((candidate) => candidate.id !== product.id);
+
+  if (!size || size.unit !== requirement.unit) {
+    return {
+      requirement,
+      product,
+      packQty: size?.qty ?? requirement.qty,
+      packs: 1,
+      cost: Math.round(product.price * 100) / 100,
+      surplus: 0,
+      alternatives: others,
+      candidates: choice.candidates,
+      assumed: size ? "unit" : "size",
+    };
+  }
+
+  const packs = packsFor(requirement.qty, size.qty);
+  return {
+    requirement,
+    product,
+    packQty: size.qty,
+    packs,
+    cost: Math.round(packs * product.price * 100) / 100,
+    surplus: Math.round((packs * size.qty - requirement.qty) * 100) / 100,
+    alternatives: others,
+    candidates: choice.candidates,
+  };
 }

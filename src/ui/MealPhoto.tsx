@@ -7,7 +7,7 @@ export function mealPhoto(id:string) {
   return {file:`favourites-${sheet}.webp`,position:`${[2,50,98][index%3]}% ${(sheet===4?[2,50,98]:[1,33,66,99])[Math.floor(index/3)]}%`,size:sheet===4?'330% 330%':'330% 440%'};
  }
  const index=ids.indexOf(id);
- return index<0?null:{file:'meals.png',position:`${[2,50,98][index%3]}% ${[0,30,61,93][Math.floor(index/3)]}%`,size:'330% 440%'};
+ return index<0?null:{file:'meals.webp',position:`${[2,50,98][index%3]}% ${[0,30,61,93][Math.floor(index/3)]}%`,size:'330% 440%'};
 }
 /** Illustrative generated meal photography; one shared asset avoids twelve downloads. */
 export function MealPhoto({ id }: { id: string }) {

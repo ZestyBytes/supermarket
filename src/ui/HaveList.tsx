@@ -3,6 +3,7 @@ import type { Requirement } from "../domain/types";
 import { formatQty, money } from "../domain/units";
 import type { RetailerBasket } from "../domain/retailerClient";
 import type { ItemStatus } from "./useBasket";
+import { useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   /** What was already in the Tesco basket before this week's plan. */
   theirs: RetailerBasket["items"];
   onToggle: (ingredientId: string) => void;
+  /** Buy a different Tesco product for this ingredient. */
+  onSwap: (ingredientId: string, productId: string) => void;
 }
 
 /**
@@ -25,11 +28,12 @@ interface Props {
  * beside it means it is in the basket, and a second line appears only when
  * there is something you could not have guessed.
  */
-export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: Props) {
+export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap }: Props) {
   if (requirements.length === 0) {
     return <p className="empty">Choose some dinners and the list builds itself.</p>;
   }
 
+  const [open, setOpen] = useState<string | null>(null);
   const groups = byAisle(requirements);
   const stateOf = (id: string) => statuses.find((s) => s.ingredientId === id);
 
@@ -54,19 +58,33 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
               const status = have ? undefined : stateOf(requirement.ingredient.id);
               const note = have ? "already have" : aside(requirement, status);
 
+              const swappable = (status?.choices?.length ?? 0) > 1;
+              const picking = open === requirement.ingredient.id;
+
               return (
                 <li className={`tick${have ? " tick--have" : ""}`} key={requirement.ingredient.id}>
-                  <label>
-                    <input type="checkbox" checked={have} onChange={() => onToggle(requirement.ingredient.id)} />
-                    <span className="box">
-                      <Icon name="check" size={16} />
-                    </span>
-                    <span className="tick__text">
+                  <div className="tick__line">
+                    <label className="tick__box">
+                      <input type="checkbox" checked={have} onChange={() => onToggle(requirement.ingredient.id)} />
+                      <span className="box">
+                        <Icon name="check" size={16} />
+                      </span>
+                      <span className="sr">Already have {requirement.ingredient.name}</span>
+                    </label>
+
+                    <Body
+                      swappable={swappable}
+                      picking={picking}
+                      onPick={() => setOpen(picking ? null : requirement.ingredient.id)}
+                      label={`Buy something else for ${requirement.ingredient.name}`}
+                    >
                       <span className="tick__name">
                         {status?.product ? status.product.title : requirement.ingredient.name}
+                        {swappable && <Icon name={picking ? "up" : "down"} size={15} />}
                       </span>
                       {note && <span className={`tick__for${status && bad(status) ? " tick__for--bad" : ""}`}>{note}</span>}
-                    </span>
+                    </Body>
+
                     {status?.state === "added" && (
                       <span className="tick__in" title="In your Tesco basket">
                         <Icon name="check" size={15} />
@@ -77,7 +95,27 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
                         {status?.cost != null ? money(status.cost) : formatQty(requirement.qty, requirement.ingredient)}
                       </span>
                     )}
-                  </label>
+                  </div>
+
+                  {picking && (
+                    <ul className="swaps" aria-label={`Other products for ${requirement.ingredient.name}`}>
+                      {status?.choices?.map((option) => (
+                        <li key={option.id}>
+                          <button
+                            type="button"
+                            className={option.id === status.product?.id ? "is-on" : undefined}
+                            onClick={() => {
+                              onSwap(requirement.ingredient.id, option.id);
+                              setOpen(null);
+                            }}
+                          >
+                            <span className="swaps__name">{option.title}</span>
+                            <span className="swaps__price">{money(option.price)}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
@@ -109,6 +147,28 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle }: P
         </section>
       )}
     </>
+  );
+}
+
+/** The middle of a line: a button when there is a choice to make, plain text when not. */
+function Body({
+  swappable,
+  picking,
+  onPick,
+  label,
+  children,
+}: {
+  swappable: boolean;
+  picking: boolean;
+  onPick: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  if (!swappable) return <span className="tick__text">{children}</span>;
+  return (
+    <button className="tick__text tick__text--pick" type="button" aria-expanded={picking} aria-label={label} onClick={onPick}>
+      {children}
+    </button>
   );
 }
 

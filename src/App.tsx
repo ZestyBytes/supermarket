@@ -102,6 +102,7 @@ export function App() {
             pantry={pantry}
             statuses={basket.items}
             theirs={basket.theirs}
+            onSwap={basket.swap}
             onToggle={(id) =>
               setPantryIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
             }
