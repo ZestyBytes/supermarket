@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BasketState } from "./useBasket";
+import { talkingDirect } from "../domain/retailerClient";
+import { whatItSaw } from "../domain/extension";
+import { lastTescoAnswer, lastTescoSearchAnswer } from "../domain/tescoDirect";
 import { Icon } from "./Icon";
 
 interface Props {
@@ -43,6 +46,8 @@ export function Settings({ state, servings, wanted, onServings, onWanted }: Prop
         </button>
 
         <p className="note">If Tesco signs you out, reconnect using the Chrome extension.</p>
+
+        <Detail />
         <a className="basket-link" href="https://www.tesco.com/groceries/en-GB/trolley" target="_blank" rel="noreferrer">Manage Tesco basket <Icon name="external" size={18}/></a>
         <p className="note">Remove items or check out at Tesco.</p>
       </section>
@@ -173,3 +178,63 @@ function describe(state: BasketState): { tone: "good" | "bad" | "wait"; headline
   }
 }
 
+/**
+ * What Tesco actually said, folded away until it is wanted.
+ *
+ * This lived on the blocking screen, where it was the only thing standing
+ * between a wrong verdict and no way to argue with it. It has earned a
+ * permanent home, but not a prominent one: nobody planning a week needs to
+ * read HTTP statuses, and the moment they do need them, guessing is worse.
+ */
+function Detail() {
+  const [open, setOpen] = useState(false);
+  const saw = useSaw(talkingDirect() && open);
+  if (!talkingDirect()) return null;
+
+  const lines = {
+    ...(saw ?? {}),
+    ...(lastTescoAnswer() ? { answer: lastTescoAnswer() } : {}),
+    ...(lastTescoSearchAnswer() ? { search: lastTescoSearchAnswer() } : {}),
+  };
+
+  return (
+    <details className="detail" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>What Tesco said</summary>
+      {Object.keys(lines).length === 0 ? (
+        <p className="note">Nothing yet. Check the connection above.</p>
+      ) : (
+        <dl className="detail__list">
+          {Object.entries(lines).map(([what, value]) => (
+            <div key={what}>
+              <dt>{WORDS[what] ?? what}</dt>
+              <dd>{String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </details>
+  );
+}
+
+/** Kept fresh only while the section is open. */
+function useSaw(wanted: boolean): Record<string, string> | undefined {
+  const [saw, setSaw] = useState<Record<string, string>>();
+  useEffect(() => {
+    if (!wanted) return;
+    let live = true;
+    const look = () => void whatItSaw().then((seen) => { if (live) setSaw(seen); });
+    look();
+    const timer = setInterval(look, 3000);
+    return () => { live = false; clearInterval(timer); };
+  }, [wanted]);
+  return saw;
+}
+
+const WORDS: Record<string, string> = {
+  answer: "Tesco replied",
+  search: "Last search",
+  grab: "Reading the Tesco page",
+  requests: "Seen a Tesco request",
+  token: "Sign-in token",
+  at: "Last looked",
+};

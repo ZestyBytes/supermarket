@@ -1,8 +1,5 @@
 import type { BasketState } from "./useBasket";
-import { useEffect, useState } from "react";
 import { talkingDirect } from "../domain/retailerClient";
-import { whatItSaw } from "../domain/extension";
-import { lastTescoAnswer } from "../domain/tescoDirect";
 import { Icon } from "./Icon";
 
 /**
@@ -21,7 +18,6 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
   // Tesco in this browser is the whole of it, so telling someone to click a
   // button that no longer exists would be the worst kind of wrong.
   const direct = talkingDirect();
-  const saw = useSaw(direct && !offline);
 
   return (
     <div className="gate" role="alertdialog" aria-labelledby="gate-title">
@@ -44,20 +40,6 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
 
         {state.problem && <p className="gate__why">{state.problem}</p>}
 
-        {direct && !offline && (
-          <dl className="gate__saw">
-            {Object.entries({
-              ...(saw ?? { requests: "none seen yet" }),
-              ...(lastTescoAnswer() ? { answer: lastTescoAnswer() } : {}),
-            }).map(([what, value]) => (
-              <div key={what}>
-                <dt>{plainly(what)}</dt>
-                <dd>{String(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
         <button className="gate__go" type="button" onClick={state.recheck} disabled={state.phase === "connecting"}>
           <Icon name="retry" size={17} />
           {state.phase === "connecting" ? "Checking" : "Check again"}
@@ -69,40 +51,4 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
       </div>
     </div>
   );
-}
-
-/** Read once when the gate appears, and kept fresh while it is on screen. */
-function useSaw(wanted: boolean): Record<string, string> | undefined {
-  const [saw, setSaw] = useState<Record<string, string>>();
-  useEffect(() => {
-    if (!wanted) return;
-    let live = true;
-    const look = () => {
-      void whatItSaw().then((seen) => {
-        if (live && Object.keys(seen).length > 0) setSaw(seen);
-      });
-    };
-    look();
-    const timer = setInterval(look, 2000);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [wanted]);
-  return saw;
-}
-
-const WORDS: Record<string, string> = {
-  watcher: "Watcher",
-  store: "Token in page storage",
-  answer: "Tesco replied",
-  hosts: "Tesco pages called",
-  requests: "Seen a Tesco request",
-  sawHeaders: "Headers on it",
-  token: "Sign-in token",
-  at: "Last looked",
-};
-
-function plainly(what: string): string {
-  return WORDS[what] ?? what;
 }

@@ -2,6 +2,10 @@ import type { RetailerBasket } from "./retailerClient";
 import type { RetailerProduct } from "./liveMatch";
 
 const XAPI = "https://xapi.tesco.com/";
+/** How many ingredients may be looked up at the same time. */
+const AT_ONCE = 3;
+/** A complaint that means "sign in", as opposed to any other kind. */
+const SOUNDS_LIKE_AUTH = /unauthor|unauthen|forbidden|token|session|sign ?in|not logged/i;
 const SEARCH = "https://search.api.tesco.com/search";
 
 /** The headers a Tesco page adds that cookies alone will not supply. */
@@ -46,6 +50,20 @@ export class TescoError extends Error {
 let lastAnswer = "";
 export function lastTescoAnswer(): string {
   return lastAnswer;
+}
+
+/**
+ * The same, for the half of a search that finds product numbers.
+ *
+ * That step and the step that describes them are different hosts with
+ * different rules, and one can fail while the other is perfectly happy. When
+ * it does, every line on the list says the same unhelpful thing, so the status
+ * or the refusal itself is the only way to tell a blocked caller from a
+ * rate-limited one from a shop with nothing on the shelf.
+ */
+let lastSearch = "";
+export function lastTescoSearchAnswer(): string {
+  return lastSearch;
 }
 
 export function createTescoTransport({
@@ -136,7 +154,15 @@ export function createTescoTransport({
 
   return {
     async searchBatch(queries, limit = 5) {
-      return Promise.all(queries.map(async (query) => {
+      // A few at a time, not all at once.
+      //
+      // Every ingredient is its own search, and each one asks Tesco to
+      // describe five products, so a ten-line list arrived as fifty lookups in
+      // the same breath. Tesco answered some of them and quietly dropped the
+      // rest, which reached the list as "found products but would not describe
+      // them" on a random handful of lines while their neighbours priced up
+      // perfectly. Asking politely gets the whole list.
+      return atATime(AT_ONCE, queries, async (query) => {
         try {
           return { query, results: await search(query, limit, doFetch, gql) };
         } catch (error) {
@@ -145,7 +171,7 @@ export function createTescoTransport({
           if (code === "SESSION_EXPIRED" || code === "SESSION_MISSING") throw error;
           return { query, results: [], error: { code, message: (error as Error).message } };
         }
-      }));
+      });
     },
 
     async readBasket() {
@@ -203,6 +229,25 @@ export function readBasketFrom(basket: BasketResponse | undefined): RetailerBask
  * products match a word, and an authenticated one that knows anything else
  * about them.
  */
+/**
+ * Run a job over each item, a few at a time, answers in the order asked.
+ *
+ * Promise.all is the obvious thing and the wrong one here: it starts
+ * everything at once, which is exactly what Tesco declines to serve.
+ */
+async function atATime<In, Out>(width: number, items: In[], job: (item: In) => Promise<Out>): Promise<Out[]> {
+  const answers = new Array<Out>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const mine = next++;
+      answers[mine] = await job(items[mine]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(width, items.length) }, worker));
+  return answers;
+}
+
 async function search(
   query: string,
   limit: number,
@@ -210,17 +255,33 @@ async function search(
   gql: <T>(ops: Array<{ operationName: string; query: string; variables: unknown }>) => Promise<T[]>,
 ): Promise<RetailerProduct[]> {
   const url = `${SEARCH}?distchannel=ghs&count=${limit}&offset=0&query=${encodeURIComponent(query)}`;
-  const found = await doFetch(url, { headers: { accept: "application/json" } });
+
+  let found: Response;
+  try {
+    found = await doFetch(url, { headers: { accept: "application/json" } });
+  } catch (error) {
+    // No status at all: the request never left, which is a different fault
+    // from Tesco turning it down and has a different fix.
+    lastSearch = `the search request did not get through: ${(error as Error).message.slice(0, 80)}`;
+    throw new TescoError("OFFLINE", "The search request to Tesco did not get through.");
+  }
+
+  lastSearch = `${found.status} ${found.statusText || ""}`.trim();
   if (!found.ok) throw new TescoError("RETAILER_ERROR", `Tesco search answered with ${found.status}.`);
 
-  const body = await found.json();
+  const body = await found.json().catch(() => null);
+  if (body === null) {
+    lastSearch = `${found.status}, but the answer was not JSON`;
+    throw new TescoError("RETAILER_ERROR", "Tesco search answered with something we could not read.");
+  }
   const tpnbs: string[] = (body?.uk?.ghs?.products?.results ?? [])
     .map((r: { tpnb?: unknown }) => String(r?.tpnb ?? ""))
     .filter(Boolean)
     .slice(0, limit);
+  lastSearch = `${lastSearch}, ${tpnbs.length} found for "${query}"`;
   if (tpnbs.length === 0) return [];
 
-  const answers = await gql<{ data?: { product?: RawProduct } }>(
+  const answers = await gql<{ data?: { product?: RawProduct }; errors?: Array<{ message?: string }> }>(
     tpnbs.map((tpnb) => ({ operationName: "GetProductByTpnb", query: PRODUCT_BY_TPNB, variables: { tpnb } })),
   );
   const products = answers.map((a) => a?.data?.product).filter(Boolean) as RawProduct[];
@@ -229,6 +290,21 @@ async function search(
   // looks exactly like an empty shelf. Finding names and then nothing about any
   // of them is not an empty shelf.
   if (products.length === 0) {
+    // But it is not necessarily a dead session either, and saying so sends
+    // someone off to sign in again when they are already signed in. Tesco
+    // refusing to answer says nothing; Tesco explaining itself says what is
+    // actually wrong, and a complaint about the question we asked is our fault,
+    // not the shopper's.
+    const complaint = answers.flatMap((a) => a?.errors ?? []).map((e) => e?.message).filter(Boolean)[0];
+    if (complaint && SOUNDS_LIKE_AUTH.test(complaint)) {
+      lastSearch = `${lastSearch}, and Tesco said: ${complaint.slice(0, 120)}`;
+      throw new TescoError("SESSION_EXPIRED", "Tesco needs you to sign in again. Open a Tesco tab, then try again.");
+    }
+    if (complaint) {
+      lastSearch = `${lastSearch}, and Tesco said: ${complaint.slice(0, 120)}`;
+      throw new TescoError("RETAILER_ERROR", `Tesco would not describe its own products: ${complaint.slice(0, 120)}`);
+    }
+    lastSearch = `${lastSearch}, but none of them could be described, and Tesco gave no reason`;
     throw new TescoError("SESSION_EXPIRED", "Tesco found products but would not describe them. Open a Tesco tab and try again.");
   }
 

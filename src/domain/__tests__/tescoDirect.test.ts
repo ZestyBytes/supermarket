@@ -179,3 +179,53 @@ describe("a token that has aged out", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("asking Tesco politely", () => {
+  const searchHit = { uk: { ghs: { products: { results: [{ tpnb: "111" }] } } } };
+  const described = [{ data: { product: { id: "p1", title: "Tesco Onions 1Kg", price: { actual: 1.2 } } } }];
+
+  it("looks up a few ingredients at a time rather than the whole list at once", async () => {
+    // Ten lines arriving as one burst is what made Tesco answer some and drop
+    // the rest, so the ceiling is the fix and worth holding onto.
+    let running = 0;
+    let worst = 0;
+    const fetch = vi.fn(async (url: string) => {
+      running++;
+      worst = Math.max(worst, running);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      running--;
+      return String(url).includes("search.api") ? reply(searchHit) : reply(described);
+    });
+
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+    const list = ["onions", "peppers", "chicken", "chorizo", "prawns", "rice", "stock", "oil"];
+    const answers = await tesco.searchBatch(list);
+
+    expect(worst).toBeLessThanOrEqual(3);
+    // Politeness must not cost correctness: every line answered, in order.
+    expect(answers.map((a) => a.query)).toEqual(list);
+    expect(answers.every((a) => a.results.length === 1)).toBe(true);
+  });
+
+  it("does not blame the shopper for a complaint that is not about signing in", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      String(url).includes("search.api")
+        ? reply(searchHit)
+        : reply([{ errors: [{ message: "Cannot query field defaultImageUrl" }] }]),
+    );
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    const [answer] = await tesco.searchBatch(["onions"]);
+    expect(answer.error?.code).toBe("RETAILER_ERROR");
+    expect(answer.error?.message).toMatch(/Cannot query field/);
+  });
+
+  it("still says sign in when that is what Tesco complained about", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      String(url).includes("search.api") ? reply(searchHit) : reply([{ errors: [{ message: "Unauthorized" }] }]),
+    );
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    await expect(tesco.searchBatch(["onions"])).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
+  });
+});
