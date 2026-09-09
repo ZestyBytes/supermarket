@@ -433,11 +433,11 @@ button { touch-action:manipulation; }
 .sheet { max-width:960px; padding:20px 20px calc(185px + env(safe-area-inset-bottom,0px)); gap:24px; }
 .fresh-heading h1 { font-size:clamp(30px,6vw,44px); line-height:1.1; letter-spacing:-.035em; font-weight:800; }
 .fresh-heading p { color:var(--muted); font-size:18px; margin-top:8px; }
-.fresh-controls { display:flex; align-items:center; gap:8px; margin-top:20px; flex-wrap:wrap; }
-.fresh-controls select { border:0; border-radius:24px; min-height:44px; padding:8px 12px; background:#f1f5f2; color:var(--ink); font-weight:600; max-width:155px; }
+.fresh-controls { display:flex; align-items:center; gap:8px; margin-top:14px; flex-wrap:nowrap; }
+.fresh-controls select { border:0; border-radius:24px; min-height:44px; padding:8px 10px; background:#f1f5f2; color:var(--ink); font-weight:600; min-width:0; flex:0 1 auto; }
 .fresh-pick,.fresh-clear { background:none; border:0; min-height:44px; cursor:pointer; color:var(--accent); font-size:13px; text-decoration:underline; text-underline-offset:4px; }
-.fresh-pick { margin-left:auto; }
-.fresh-selection { display:flex; gap:16px; margin-top:24px; align-items:center; }
+.fresh-pick { margin-left:auto; flex:none; white-space:nowrap; }
+.fresh-selection { display:flex; gap:16px; margin-top:12px; align-items:center; }
 .fresh-thumbs { display:flex; gap:4px; overflow-x:auto; padding:3px 3px 8px; min-width:0; scrollbar-width:thin; flex:1; }
 .food-photo { width:100%; aspect-ratio:1; background-size:330% 440%; background-repeat:no-repeat; background-color:#f2f5f2; }
 .selected-meal,.empty-meal { position:relative; flex:0 0 44px; width:44px; height:44px; padding:0; border-radius:50%; border:1px solid var(--line); background:white; color:var(--muted); display:grid; place-items:center; }
@@ -456,10 +456,15 @@ button { touch-action:manipulation; }
 .fresh-card { border:1px solid var(--line); border-radius:12px; overflow:hidden; min-width:0; background:white; }
 .fresh-card.is-selected { border:2px solid var(--accent); }
 .fresh-photo-button { display:block; width:100%; padding:0; border:0; position:relative; cursor:pointer; }
-.photo-check { position:absolute; right:8px; top:8px; background:var(--accent); color:white; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; }
+/* Both live on the photo now: time top-left, add/remove top-right. */
+.photo-check { position:absolute; right:8px; top:8px; background:rgba(255,255,255,.92); color:var(--accent); width:30px; height:30px; border-radius:50%; display:grid; place-items:center; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+.photo-check.is-on { background:var(--accent); color:white; }
+.photo-time { position:absolute; left:8px; top:8px; display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.92); color:var(--ink); font-size:12px; font-weight:700; padding:3px 8px 3px 6px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+.photo-time svg { width:13px; height:13px; }
+.fresh-name { display:block; width:100%; text-align:left; padding:0; cursor:pointer; }
 .photo-check svg { width:18px; }
-.fresh-card-body { padding:12px 10px 10px; }
-.fresh-card h2 { font-size:16px; line-height:1.25; letter-spacing:-.025em; min-height:40px; font-weight:700; }
+.fresh-card-body { padding:8px 10px 10px; }
+.fresh-card h2 { font-size:15px; line-height:1.25; letter-spacing:-.02em; font-weight:700; }
 .fresh-card-bottom { display:flex; align-items:center; justify-content:space-between; gap:4px; margin-top:10px; }
 .fresh-card-bottom > span { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:12px; white-space:nowrap; }
 .fresh-card-bottom > span svg { width:16px; height:16px; }
@@ -482,7 +487,7 @@ button { touch-action:manipulation; }
 .btn--go { background:var(--accent); border-color:var(--accent); }
 .mini { min-height:44px; font-family:var(--body); }
 .label { font-family:var(--body); letter-spacing:.04em; }
-@media(min-width:700px) { .fresh-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; } .fresh-card h2 { font-size:20px; min-height:50px; } .fresh-card-body { padding:16px; } .fresh-card-bottom > span { font-size:14px; } .fresh-thumbs { flex:0 1 auto; } .selected-meal,.empty-meal { width:60px; height:60px; flex-basis:60px; } .tabs { padding-left:calc((100% - 720px)/2); padding-right:calc((100% - 720px)/2); } }
+@media(min-width:700px) { .fresh-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; } .fresh-card h2 { font-size:18px; } .fresh-card-body { padding:16px; } .fresh-card-bottom > span { font-size:14px; } .fresh-thumbs { flex:0 1 auto; } .selected-meal,.empty-meal { width:60px; height:60px; flex-basis:60px; } .tabs { padding-left:calc((100% - 720px)/2); padding-right:calc((100% - 720px)/2); } }
 @media(prefers-reduced-motion:no-preference) { .meal-toggle { transition:background-color .15s ease; } }
 @media (max-width: 380px) {
   .top__title { font-size: 28px; }

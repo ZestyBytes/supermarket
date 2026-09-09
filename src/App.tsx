@@ -74,7 +74,6 @@ export function App() {
               onWanted={setWanted}
               onServings={setServingsEverywhere}
               onSurprise={surprise}
-              onClear={() => setPlan([])}
               onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
             />
 
@@ -99,19 +98,6 @@ export function App() {
 
       {tab === "list" && (
         <>
-          <header className="top">
-            <div>
-              <h1 className="top__title">Shopping list</h1>
-              <p className="top__sub">
-                {plan.length > 0 ? `From ${plan.length} dinners, added up` : "Nothing planned yet"}
-              </p>
-            </div>
-            <div className="top__count">
-              <div className="top__countnum">{toBuy.length}</div>
-              <div className="label">to buy</div>
-            </div>
-          </header>
-
           <main className="sheet">
             <HaveList
               requirements={requirements}
@@ -131,16 +117,10 @@ export function App() {
       )}
 
       {tab === "shop" && (
-        <>
-          <div className="fresh-heading">
-            <h1>Your Tesco shop.</h1>
-            <p>Review your products before adding them.</p>
-          </div>
-          <LivePanel
-            key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])}
-            requirements={toBuy}
-          />
-        </>
+        <LivePanel
+          key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])}
+          requirements={toBuy}
+        />
       )}
 
       <div className="pad" />

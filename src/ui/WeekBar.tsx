@@ -10,18 +10,12 @@ interface Props {
   onServings: (n: number) => void;
   onWanted: (n: number) => void;
   onSurprise: () => void;
-  onClear: () => void;
   onRemove: (key: string) => void;
 }
 
-export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted, onSurprise, onClear, onRemove }: Props) {
+export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted, onSurprise, onRemove }: Props) {
   return (
     <section className="fresh-week" aria-label="This week">
-      <div className="fresh-heading">
-        <h1>What’s for dinner?</h1>
-        <p>Your week, sorted.</p>
-      </div>
-
       <div className="fresh-controls">
         <label>
           <span className="sr">People</span>
@@ -81,12 +75,6 @@ export function WeekBar({ plan, recipes, servings, wanted, onServings, onWanted,
           <span>dinners picked</span>
         </p>
       </div>
-
-      {plan.length > 0 && (
-        <button type="button" className="fresh-clear" onClick={onClear}>
-          Clear selection
-        </button>
-      )}
     </section>
   );
 }

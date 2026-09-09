@@ -203,13 +203,6 @@ export function LivePanel({ requirements }: Props) {
 
   return (
     <>
-      <header className="top">
-        <div>
-          <h1 className="top__title">Your Tesco basket</h1>
-          <p className="top__sub">{mode === "mock" ? "Practice shop — no real account" : "Matched to real products"}</p>
-        </div>
-      </header>
-
       <main className="sheet">
         <ConnectionRow conn={conn} session={session} mode={mode} onCheck={checkConnection} />
 
@@ -318,12 +311,6 @@ export function LivePanel({ requirements }: Props) {
 function PlanningOnly() {
   return (
     <>
-      <header className="top">
-        <div>
-          <h1 className="top__title">Your Tesco basket</h1>
-          <p className="top__sub">Planning only on this copy</p>
-        </div>
-      </header>
       <main className="sheet">
         <div className="panel panel--plain">
           <p className="panel__head">

@@ -26,10 +26,18 @@ export function MealDeck({recipes,plan,ingredients,onAdd,onRemove,stock}:Props) 
      const selected=chosen.has(recipe.id);
      const have=mealStock(recipe,stock,ingredients);
      return <li className={`fresh-card${selected?' is-selected':''}${have.state==='short'?' is-short':''}`} key={recipe.id}>
-       <button className="fresh-photo-button" aria-label={`View ${recipe.name} ingredients`} aria-expanded={open===recipe.id} onClick={()=>setOpen(open===recipe.id?null:recipe.id)}><MealPhoto id={recipe.id}/>{selected&&<span className="photo-check"><Icon name="check"/></span>}
+       {/* The whole photo adds or removes; the time and the tick sit on it, so
+           the card is a picture and a name and nothing else. The footer row
+           they used to live in was costing about a third of every card. */}
+       <button className="fresh-photo-button" aria-pressed={selected} aria-label={`${selected?'Remove':'Add'} ${recipe.name}`} onClick={()=>selected?onRemove(recipe.id):onAdd(recipe.id)}>
+        <MealPhoto id={recipe.id}/>
+        <span className="photo-time"><Icon name="clock"/>{recipe.minutes}</span>
+        <span className={`photo-check${selected?' is-on':''}`}><Icon name={selected?'check':'plus'}/></span>
         {have.state==='short'&&<span className="photo-short" title={`Tesco has no ${have.missing.join(', ')}`}>{have.missing.length} missing</span>}
        </button>
-       <div className="fresh-card-body"><h2>{recipe.name}</h2><div className="fresh-card-bottom"><span><Icon name="clock"/>{recipe.minutes} min</span><button className="meal-toggle" aria-pressed={selected} aria-label={`${selected?'Remove':'Add'} ${recipe.name}`} onClick={()=>selected?onRemove(recipe.id):onAdd(recipe.id)}><Icon name={selected?'check':'plus'}/></button></div></div>
+       <div className="fresh-card-body">
+        <button className="fresh-name" aria-expanded={open===recipe.id} aria-label={`What's in ${recipe.name}`} onClick={()=>setOpen(open===recipe.id?null:recipe.id)}><h2>{recipe.name}</h2></button>
+       </div>
        {open===recipe.id&&<div className="fresh-details">
         {have.state==='short'&&<p className="fresh-missing">Tesco has nothing for {have.missing.join(', ')} — the rest of this meal can still be bought.</p>}
         <p>{recipe.blurb}</p><ul>{recipe.ingredients.map(line=><li key={line.ingredientId}>{ingredients.find(i=>i.id===line.ingredientId)?.name}{line.prep&&` · ${line.prep}`}</li>)}</ul><button onClick={()=>setOpen(null)}>Close details</button></div>}
