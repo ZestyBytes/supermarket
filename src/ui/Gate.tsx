@@ -1,4 +1,5 @@
 import type { BasketState } from "./useBasket";
+import { talkingDirect } from "../domain/retailerClient";
 import { Icon } from "./Icon";
 
 /**
@@ -13,6 +14,10 @@ import { Icon } from "./Icon";
  */
 export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => void }) {
   const offline = state.phase === "offline";
+  // In the extension there is no server and no Connect: being signed in to
+  // Tesco in this browser is the whole of it, so telling someone to click a
+  // button that no longer exists would be the worst kind of wrong.
+  const direct = talkingDirect();
 
   return (
     <div className="gate" role="alertdialog" aria-labelledby="gate-title">
@@ -22,13 +27,15 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
         </span>
 
         <h1 className="gate__title" id="gate-title">
-          {offline ? "Supermarket is not running here" : "Tesco is not connected"}
+          {offline ? "Supermarket is not running here" : direct ? "You are not signed in to Tesco" : "Tesco is not connected"}
         </h1>
 
         <p className="gate__body">
           {offline
             ? "This page can plan a week on its own, but adding to a real basket happens on the computer that holds your Tesco session. Start Supermarket there and open it again."
-            : "Your Tesco sign-in has expired, which it does about once an hour. Open the Supermarket extension in Chrome, click Connect, then come back here."}
+            : direct
+              ? "Open tesco.com in another tab and sign in, then come back and check again. Nothing else is needed: this uses the same session your browser already has."
+              : "Your Tesco sign-in has expired, which it does about once an hour. Open the Supermarket extension in Chrome, click Connect, then come back here."}
         </p>
 
         {state.problem && <p className="gate__why">{state.problem}</p>}

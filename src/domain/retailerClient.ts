@@ -1,5 +1,6 @@
 import type { RetailerProduct } from "./liveMatch";
 import {createSearchCache} from './searchCache';
+import type { Transport } from "./tescoDirect";
 
 /**
  * Talks to the local server, which is the only thing that holds the session.
@@ -59,6 +60,25 @@ export function isLoopbackPage(): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
 }
 
+/**
+ * Where Tesco is reached, decided once at start-up.
+ *
+ * Inside the extension the app calls Tesco itself and there is no server to
+ * run. Anywhere else it asks the local one, exactly as before. Everything
+ * above this line is the same code either way: consolidating a week, matching
+ * packs, working out the difference between a list and a basket. None of that
+ * cares which side of the wire it is on.
+ */
+let direct: Transport | undefined;
+
+export function useDirectTesco(transport: Transport | undefined) {
+  direct = transport;
+}
+
+export function talkingDirect(): boolean {
+  return direct !== undefined;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -92,6 +112,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getSession(): Promise<{ session: SessionState; mode: "live" | "mock" }> {
+  // In the extension there is nothing to be connected to: the browser either
+  // has a Tesco session or it does not, and asking it costs one basket read.
+  if (direct) {
+    try {
+      await direct.readBasket();
+      return { session: { present: true }, mode: "live" };
+    } catch (error) {
+      const code = (error as { code?: RetailerErrorCode }).code;
+      if (code === "SESSION_MISSING" || code === "SESSION_EXPIRED") return { session: { present: false }, mode: "live" };
+      throw asRetailerError(error);
+    }
+  }
   return request("/session");
 }
 
@@ -103,11 +135,17 @@ export async function search(query: string, limit = 8): Promise<RetailerProduct[
 }
 
 export async function readBasket(): Promise<RetailerBasket> {
+  if (direct) return direct.readBasket().catch((error) => { throw asRetailerError(error); });
   const { basket } = await request<{ basket: RetailerBasket }>("/basket");
   return basket;
 }
 
 async function fetchSearchBatch(queries: string[]): Promise<Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }>> {
+  if (direct) {
+    return direct
+      .searchBatch(queries)
+      .catch((error) => { throw asRetailerError(error); }) as Promise<Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }>>;
+  }
   const result = await request<{ results: Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }> }>("/search-batch", { method: "POST", body: JSON.stringify({ queries }) });
   return result.results;
 }
@@ -121,6 +159,7 @@ export async function addToBasket(
   /** Treat the quantities as what the basket should hold, not what to add on top. */
   absolute = false,
 ): Promise<{ added: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
+  if (direct) return writeDirect(direct, items, absolute);
   return request("/basket", { method: "POST", body: JSON.stringify({ items, attemptId, absolute }) });
 }
 
@@ -134,5 +173,62 @@ export async function removeFromBasket(
   attemptId: string,
   productIds?: string[],
 ): Promise<{ removed: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
+  if (direct) {
+    const basket = await direct.readBasket().catch((error) => { throw asRetailerError(error); });
+    const targets = (productIds ?? basket.items.map((item) => item.id)).filter((id) =>
+      basket.items.some((item) => item.id === id),
+    );
+    const result = await writeDirect(direct, targets.map((productId) => ({ productId, qty: 0 })), true);
+    return { removed: result.added, failed: result.failed, basket: result.basket };
+  }
   return request("/basket/remove", { method: "POST", body: JSON.stringify({ attemptId, productIds }) });
+}
+
+/**
+ * Write each line, then read the basket to see what actually happened.
+ *
+ * The same shape the server returns, and for the same reasons: one line
+ * failing must not abandon the rest, and what Tesco holds afterwards is the
+ * only account of it worth believing. Retrying is safe because the quantity
+ * is absolute, so writing "3" twice leaves 3.
+ */
+async function writeDirect(
+  transport: Transport,
+  items: Array<{ productId: string; qty: number }>,
+  absolute: boolean,
+): Promise<{ added: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
+  const before = absolute ? null : await transport.readBasket().catch(() => null);
+  const refused = new Map<string, string>();
+
+  for (const item of items) {
+    const target = absolute ? item.qty : item.qty + (before?.items.find((i) => i.id === item.productId)?.qty ?? 0);
+    try {
+      await transport.setQuantity(item.productId, target);
+    } catch (error) {
+      const wrapped = asRetailerError(error);
+      // A dead session will not improve on the next product.
+      if (wrapped.code === "SESSION_EXPIRED" || wrapped.code === "SESSION_MISSING") throw wrapped;
+      refused.set(item.productId, wrapped.message);
+    }
+  }
+
+  const basket = await transport.readBasket().catch((error) => { throw asRetailerError(error); });
+  const held = new Map(basket.items.map((item) => [item.id, item.qty]));
+  const added = items.filter((item) => (held.get(item.productId) ?? 0) >= item.qty && item.qty > 0);
+  const gone = items.filter((item) => item.qty === 0 && !held.has(item.productId));
+  const failed = items
+    .filter((item) => !added.includes(item) && !gone.includes(item))
+    .map((item) => ({
+      productId: item.productId,
+      inBasket: held.get(item.productId) ?? 0,
+      error: { code: "RETAILER_ERROR", message: refused.get(item.productId) ?? "Tesco did not confirm this line." },
+    }));
+
+  return { added: [...added, ...gone], failed, basket };
+}
+
+function asRetailerError(error: unknown): RetailerError {
+  if (error instanceof RetailerError) return error;
+  const code = (error as { code?: RetailerErrorCode }).code ?? "RETAILER_ERROR";
+  return new RetailerError(code, error instanceof Error ? error.message : String(error));
 }

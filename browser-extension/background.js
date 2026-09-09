@@ -5,6 +5,38 @@ const REFRESH_MINUTES = 30;   // Tesco's token lasts about an hour.
 const WINDOW_MS = 300000;     // A single Connect click stays open this long.
 let busy = false;
 
+/* ---------- the app itself ---------- */
+
+/**
+ * The toolbar button opens the app in a tab, not a popup.
+ *
+ * A popup is the right shape for a switch and the wrong one for something you
+ * spend ten minutes in. This is a full page with its own URL, which can be
+ * pinned, bookmarked and left open like any other.
+ */
+const APP = 'app/index.html';
+
+chrome.action.onClicked.addListener(async () => {
+  const url = chrome.runtime.getURL(APP);
+  const [open] = await chrome.tabs.query({ url });
+  if (open) await chrome.tabs.update(open.id, { active: true });
+  else await chrome.tabs.create({ url });
+});
+
+/**
+ * Lend the app the two headers a Tesco page adds.
+ *
+ * Not the cookies: the browser sends those itself, as it does for any site,
+ * which is the whole reason this version has no session to look after. These
+ * two are not cookies, so they have to be borrowed from a request the Tesco
+ * page made, and they are held in memory only.
+ */
+chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (sender.id !== chrome.runtime.id || message?.type !== 'tesco-headers') return;
+  chrome.storage.session.get('tescoHeaders').then(({ tescoHeaders }) => reply({ headers: tescoHeaders }));
+  return true;
+});
+
 /* ---------- staying connected ---------- */
 
 /**
@@ -107,17 +139,24 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 );
 
 async function capture(details) {
-  if (busy || details.tabId < 0) return;
-
-  const keep = await staying();
-  const state = await chrome.storage.session.get(['until', 'nonce']);
-  const invited = state.until > Date.now();
-  if (!keep && !invited) return;
+  if (details.tabId < 0) return;
 
   const headers = Object.fromEntries(
     (details.requestHeaders || []).filter(h => allowed.includes(h.name.toLowerCase()) && h.value).map(h => [h.name.toLowerCase(), h.value]),
   );
   if (!/^Bearer\s+/i.test(headers.authorization || '')) return;
+
+  // Always, and before anything else decides it is not interested. The app in
+  // the tab needs these whether or not the old local-server handshake is going
+  // on, and they go no further than this browser's memory.
+  await chrome.storage.session.set({ tescoHeaders: headers });
+
+  // The rest is only for a local server, which the in-tab app does not use.
+  if (busy) return;
+  const keep = await staying();
+  const state = await chrome.storage.session.get(['until', 'nonce']);
+  const invited = state.until > Date.now();
+  if (!keep && !invited) return;
 
   busy = true;
   try {

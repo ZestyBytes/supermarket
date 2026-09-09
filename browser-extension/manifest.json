@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Supermarket Tesco Connect",
-  "version": "0.1.1",
-  "description": "Keeps Supermarket connected to Tesco on this computer.",
+  "version": "0.2.0",
+  "description": "Plan the week and fill your Tesco basket, with nothing else to run.",
   "permissions": [
     "webRequest",
     "cookies",
@@ -19,7 +19,17 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_title": "Open Supermarket"
   },
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjm6/62iR6IkK1uoWjUXImqqyi1wP34rx+S6x7xoXbqmVFqxjPDm+kyV1GWzwxBzWTCivrvWdIiLQU+EzS0v/njUND3cCzVe+X46uJHzXuvYdJE+17f1PaT8uJdWcV1fu4UtkwDiGzyUWsOQCldUH7nc7rDS/InbYHAiTw3SkOq/RcK6ytIFmMl/d1Nf/TZbstXAKJrKPMA1iKD7Dxtwd2T2MfSjrbW5yL9XdJ/Bp9muS5H8Dskpzx/Is0osZea24eT25GbKxQPRHPF/cP2O9Wl+W0N7kr37s+2Wz5/cpiLFTWIDVJ7NKSY8BSWuh7cNTXuJ/YJM9mv7PmW7nuTApKQIDAQAB"
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjm6/62iR6IkK1uoWjUXImqqyi1wP34rx+S6x7xoXbqmVFqxjPDm+kyV1GWzwxBzWTCivrvWdIiLQU+EzS0v/njUND3cCzVe+X46uJHzXuvYdJE+17f1PaT8uJdWcV1fu4UtkwDiGzyUWsOQCldUH7nc7rDS/InbYHAiTw3SkOq/RcK6ytIFmMl/d1Nf/TZbstXAKJrKPMA1iKD7Dxtwd2T2MfSjrbW5yL9XdJ/Bp9muS5H8Dskpzx/Is0osZea24eT25GbKxQPRHPF/cP2O9Wl+W0N7kr37s+2Wz5/cpiLFTWIDVJ7NKSY8BSWuh7cNTXuJ/YJM9mv7PmW7nuTApKQIDAQAB",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "app/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

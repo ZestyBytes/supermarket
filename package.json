@@ -24,7 +24,8 @@
     "connect": "node scripts/connect-tesco.mjs",
     "narrow": "node scripts/narrow-config.mjs",
     "postinstall": "patch-package",
-    "keep": "node scripts/keep-running.mjs"
+    "keep": "node scripts/keep-running.mjs",
+    "build:extension": "tsc --noEmit && vite build --config vite.extension.config.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

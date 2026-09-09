@@ -26,3 +26,4 @@ playwright-report/
 # .dc.html sources beside it; keep the sources, not the build.
 .design/*.html
 !.design/*.dc.html
+browser-extension/app/
