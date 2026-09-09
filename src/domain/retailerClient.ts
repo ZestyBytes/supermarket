@@ -1,4 +1,5 @@
 import type { RetailerProduct } from "./liveMatch";
+import {createSearchCache} from './searchCache';
 
 /**
  * Talks to the local server, which is the only thing that holds the session.
@@ -106,10 +107,13 @@ export async function readBasket(): Promise<RetailerBasket> {
   return basket;
 }
 
-export async function searchBatch(queries: string[]): Promise<Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }>> {
+async function fetchSearchBatch(queries: string[]): Promise<Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }>> {
   const result = await request<{ results: Array<{ query: string; results: RetailerProduct[]; error?: { code: RetailerErrorCode; message: string } }> }>("/search-batch", { method: "POST", body: JSON.stringify({ queries }) });
   return result.results;
 }
+const productSearch=createSearchCache(fetchSearchBatch);
+export const searchBatch=productSearch.search;
+export const clearSearchCache=productSearch.clear;
 
 export async function addToBasket(
   items: Array<{ productId: string; qty: number }>,

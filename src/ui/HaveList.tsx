@@ -29,11 +29,11 @@ interface Props {
  * there is something you could not have guessed.
  */
 export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onSwap }: Props) {
+  const [open, setOpen] = useState<string | null>(null);
   if (requirements.length === 0) {
     return <p className="empty">Choose some dinners and the list builds itself.</p>;
   }
 
-  const [open, setOpen] = useState<string | null>(null);
   const groups = byAisle(requirements);
   const stateOf = (id: string) => statuses.find((s) => s.ingredientId === id);
 

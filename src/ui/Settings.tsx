@@ -7,8 +7,6 @@ interface Props {
   wanted: number;
   onServings: (n: number) => void;
   onWanted: (n: number) => void;
-  picked: number;
-  onClear: () => void;
 }
 
 /**
@@ -20,7 +18,7 @@ interface Props {
  * about once an hour, and when it does you want somewhere deliberate to look
  * at it and press a button, not a status line you have learned to skim past.
  */
-export function Settings({ state, servings, wanted, onServings, onWanted, picked, onClear }: Props) {
+export function Settings({ state, servings, wanted, onServings, onWanted }: Props) {
   const link = describe(state);
 
   return (
@@ -43,10 +41,9 @@ export function Settings({ state, servings, wanted, onServings, onWanted, picked
           {state.phase === "connecting" ? "Checking" : "Check the connection"}
         </button>
 
-        <p className="note">
-          Signing in lasts about an hour. When it lapses, open the Supermarket extension in Chrome and click Connect.
-          Your Tesco session never leaves your own computer.
-        </p>
+        <p className="note">If Tesco signs you out, reconnect using the Chrome extension.</p>
+        <a className="basket-link" href="https://www.tesco.com/groceries/en-GB/trolley" target="_blank" rel="noreferrer">Manage Tesco basket <Icon name="external" size={18}/></a>
+        <p className="note">Remove items or check out at Tesco.</p>
       </section>
 
       <section className="panel">
@@ -79,21 +76,12 @@ export function Settings({ state, servings, wanted, onServings, onWanted, picked
         <p className="note">Changing who you are cooking for updates the amounts for every dinner you have picked.</p>
       </section>
 
-      {picked > 0 && (
-        <section className="panel">
-          <button className="wide wide--undo" type="button" onClick={onClear}>
-            Start the week again
-          </button>
-          <p className="note">
-            Unpicks all {picked} dinners. Anything already added to your Tesco basket stays there.
-          </p>
-        </section>
-      )}
     </>
   );
 }
 
 function describe(state: BasketState): { tone: "good" | "bad" | "wait"; headline: string; detail: string } {
+  if(state.mode==='mock')return {tone:'wait',headline:'Demo preview',detail:'Sample products and prices. Your real basket is not connected.'};
   switch (state.phase) {
     case "connecting":
       return { tone: "wait", headline: "Checking", detail: "Asking Tesco whether it knows you." };

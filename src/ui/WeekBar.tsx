@@ -14,6 +14,7 @@ export function WeekBar({ plan, recipes, wanted, onSurprise, onRemove }: Props) 
   return (
     <section className="fresh-week" aria-label="This week">
       <div className="fresh-controls">
+        <div><h1>Your week</h1><p>{plan.length} of {wanted} dinners picked</p></div>
         <button type="button" className="fresh-pick" onClick={onSurprise}>
           <Icon name="retry" size={16} />
           Pick for me
@@ -44,12 +45,6 @@ export function WeekBar({ plan, recipes, wanted, onSurprise, onRemove }: Props) 
           ))}
         </div>
 
-        <p aria-live="polite">
-          <strong>
-            {plan.length} of {wanted}
-          </strong>
-          <span>dinners picked</span>
-        </p>
       </div>
     </section>
   );

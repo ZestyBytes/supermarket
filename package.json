@@ -26,6 +26,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "open-supermarkets": "3.0.0",
     "playwright": "1.63.0",
     "react": "^18.3.1",
@@ -35,8 +36,10 @@
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/react-test-renderer": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "patch-package": "8.0.1",
+    "react-test-renderer": "^18.3.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
     "vitest": "^3.2.7"

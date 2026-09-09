@@ -18,6 +18,17 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
 
   if (state.phase === "offline" || state.phase === "disconnected") return null;
 
+  if(state.phase==='connecting'||state.phase==='matching'||state.phase==='adding') {
+    const matching=state.phase==='matching';
+    return <div className="dock"><div className="task-progress" role="status" aria-live="polite">
+      <div className="task-progress__heading"><Icon name={state.phase==='adding'?'shop':'search'} size={18}/><strong>{state.phase==='adding'?'Adding to Tesco':matching?'Finding your ingredients':'Connecting to Tesco'}</strong>{matching&&<span>{state.progress.done}/{state.progress.total}</span>}</div>
+      <p>{state.phase==='adding'?'Sending your items, then checking they arrived.':'Keep choosing dinners while we work.'}</p>
+      <progress aria-label={matching?'Ingredients checked':'Tesco basket update'} max={state.progress.total||1} value={matching?state.progress.done:undefined}/>
+    </div></div>;
+  }
+
+  if(state.problem) return <div className="dock"><div className="task-progress" role="alert"><p>{state.problem}</p><button className="basket-link" onClick={state.recheck}>Check Tesco again <Icon name="retry" size={18}/></button></div></div>;
+
   if (state.phase === "added") {
     const failed = state.items.filter((item) => item.state === "failed").length;
     return (
@@ -25,33 +36,24 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
         <p className={`done${failed ? " done--part" : ""}`}>
           <Icon name={failed ? "warning" : "check"} size={20} />
           {failed === 0
-            ? `All ${lines} in your Tesco basket · ${money(state.total)}`
+            ? `All ${lines} in your ${state.mode==='mock'?'demo':'Tesco'} basket · ${money(state.total)}`
             : `${lines - failed} of ${lines} added. See the shopping list.`}
         </p>
       </div>
     );
   }
 
-  const busy = state.phase === "connecting" || state.phase === "matching" || state.phase === "adding";
-
   return (
     <div className="dock">
-      <button className="dock__go" type="button" disabled={busy || lines === 0} onClick={state.add}>
-        {state.phase === "adding" ? (
-          "Adding…"
-        ) : busy ? (
-          "Checking Tesco…"
-        ) : (
+      <button className="dock__go" type="button" disabled={lines === 0} onClick={state.add}>
           <>
             <span>Add {lines} items to basket</span>
             <span className="dock__price">{money(state.estimated)}</span>
           </>
-        )}
       </button>
-      {missing > 0 && !busy && (
+      {missing > 0 && (
         <p className="dock__note">
-          {missing === 1 ? "1 ingredient" : `${missing} ingredients`} Tesco has nothing for, so you will need to pick
-          {missing === 1 ? " it" : " them"} up yourself.
+          {missing === 1 ? "1 ingredient needs" : `${missing} ingredients need`} a check in your shopping list.
         </p>
       )}
     </div>

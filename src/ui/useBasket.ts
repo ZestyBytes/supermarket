@@ -5,6 +5,7 @@ import {
   readBasket,
   RetailerError,
   searchBatch,
+  clearSearchCache,
   type RetailerBasket,
 } from "../domain/retailerClient";
 import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
@@ -34,6 +35,7 @@ export interface ItemStatus {
 }
 
 export interface BasketState {
+  mode: 'live'|'mock';
   phase: BasketPhase;
   /** Set when we are connected: the moment we last read the basket. */
   connectedAt?: string;
@@ -45,6 +47,7 @@ export interface BasketState {
   theirs: RetailerBasket["items"];
   total: number;
   estimated: number;
+  progress: {done:number;total:number};
   add: () => void;
   recheck: () => void;
   /** Buy a different product for this ingredient. Ignored once it is bought. */
@@ -63,7 +66,12 @@ const NOTHING: RetailerBasket["items"] = [];
  * yes once.
  */
 export function useBasket(requirements: Requirement[]): BasketState {
+  const [mode,setMode]=useState<'live'|'mock'>('live');
   const [phase, setPhase] = useState<BasketPhase>("connecting");
+  const [connectionVersion,setConnectionVersion]=useState(0);
+  const [progress,setProgress]=useState({done:0,total:0});
+  const writing=useRef(false);
+  const matchedKey=useRef('');
   const [connectedAt, setConnectedAt] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const [match, setMatch] = useState<LiveMatch | null>(null);
@@ -79,10 +87,13 @@ export function useBasket(requirements: Requirement[]): BasketState {
   const key = requirements.map((r) => `${r.ingredient.id}:${r.qty}`).join("|");
 
   const connect = useCallback(async () => {
+    if(writing.current)return;
+    clearSearchCache();
     setPhase("connecting");
     setProblem(undefined);
     try {
       const { session, mode } = await getSession();
+      setMode(mode);
       if (mode === "live" && !session.present) {
         setPhase("disconnected");
         return;
@@ -91,6 +102,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
       setBasket(live);
       setConnectedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       setPhase("ready");
+      setConnectionVersion(v=>v+1);
     } catch (error) {
       const code = error instanceof RetailerError ? error.code : "RETAILER_ERROR";
       if (code === "OFFLINE") setPhase("offline");
@@ -109,30 +121,40 @@ export function useBasket(requirements: Requirement[]): BasketState {
   // Match whenever the week changes and we have somewhere to ask. Nobody
   // should have to press "find products": it is the same answer every time.
   useEffect(() => {
-    if (phase === "offline" || phase === "disconnected" || phase === "connecting") return;
+    if (!connectionVersion) return;
     if (requirements.length === 0) {
       setMatch(null);
+      setPhase('ready');
+      setProgress({done:0,total:0});
       return;
     }
 
     let cancelled = false;
+    matchedKey.current='';
+    setMatch(null);
     setPhase("matching");
+    setProblem(undefined);
+    setProgress({done:0,total:requirements.length});
     setAdded(new Map());
     setFailures(new Map());
 
-    (async () => {
+    const timer=setTimeout(async () => {
       const found = new Map<string, RetailerProduct[]>();
       const failed = new Set<string>();
       try {
-        for (let offset = 0; offset < requirements.length; offset += 8) {
+        for (let offset = 0; offset < requirements.length; offset += 4) {
           if (cancelled) return;
-          const group = requirements.slice(offset, offset + 8);
+          const group = requirements.slice(offset, offset + 4);
           const answers = await searchBatch(group.map(searchTermFor));
+          if(cancelled)return;
           for (const requirement of group) {
             const answer = answers.find((a) => a.query === searchTermFor(requirement));
             if (!answer || answer.error) failed.add(requirement.ingredient.id);
             found.set(requirement.ingredient.id, answer?.results ?? []);
           }
+          const done=Math.min(offset+4,requirements.length);
+          setProgress({done,total:requirements.length});
+          setMatch(chooseLiveProducts(found,requirements.slice(0,done),failed));
         }
       } catch (error) {
         if (cancelled) return;
@@ -143,17 +165,20 @@ export function useBasket(requirements: Requirement[]): BasketState {
 
       if (cancelled) return;
       attempt.current = newAttemptId();
+      matchedKey.current=key;
       setMatch(chooseLiveProducts(found, requirements, failed));
       setPhase("armed");
-    })();
+    },180);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, phase === "ready"]);
+  }, [key, connectionVersion]);
 
   const swap = useCallback((ingredientId: string, productId: string) => {
+    if(writing.current)return;
     setMatch((current) => {
       if (!current) return current;
       const choices = current.choices.map((choice) => {
@@ -166,7 +191,8 @@ export function useBasket(requirements: Requirement[]): BasketState {
   }, []);
 
   const add = useCallback(async () => {
-    if (!match || match.choices.length === 0) return;
+    if (!match || match.choices.length === 0 || writing.current || matchedKey.current!==key || phase!=='armed') return;
+    writing.current=true;
     setPhase("adding");
     setProblem(undefined);
     try {
@@ -187,8 +213,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
       );
 
       for (const choice of match.choices) {
-        const inBasket = held.get(choice.product.id) ?? 0;
-        const ok = inBasket >= choice.packs;
+        const ok = (result.added as Array<{productId:string}>).some(item=>item.productId===choice.product.id) && !refused.has(choice.product.id);
         wentIn.set(choice.requirement.ingredient.id, ok ? "added" : "failed");
         if (!ok) why.set(choice.requirement.ingredient.id, refused.get(choice.product.id) ?? "Not in the basket.");
       }
@@ -203,8 +228,8 @@ export function useBasket(requirements: Requirement[]): BasketState {
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
       setPhase("armed");
-    }
-  }, [match]);
+    } finally {writing.current=false;}
+  }, [match,key,phase]);
 
   // One line per ingredient, in the order the list shows them.
   const items: ItemStatus[] = requirements.map((requirement) => {
@@ -222,7 +247,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
         product: choice.product,
         packs: choice.packs,
         cost: choice.cost,
-        choices: choice.candidates,
+        choices: phase==='armed'?choice.candidates:undefined,
       };
     }
     return { ingredientId: id, state: "checking" };
@@ -232,6 +257,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
   const theirs = basket ? basket.items.filter((item) => !ours.has(item.id)) : NOTHING;
 
   return {
+    mode,
     phase,
     connectedAt,
     problem,
@@ -240,6 +266,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
     theirs,
     total: basket?.total ?? 0,
     estimated: match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0,
+    progress,
     add,
     recheck: connect,
     swap,

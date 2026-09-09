@@ -7,7 +7,6 @@ import type { PlannedMeal } from "./domain/types";
 import { usePersistentState } from "./ui/usePersistentState";
 import { WeekBar } from "./ui/WeekBar";
 import { MealDeck } from "./ui/MealDeck";
-import { useStock } from "./ui/useStock";
 import { useBasket } from "./ui/useBasket";
 import { HaveList } from "./ui/HaveList";
 import { Connection } from "./ui/Connection";
@@ -35,8 +34,9 @@ export function App() {
 
   // Two background jobs, both started for you: what Tesco stocks at all, and
   // what it would sell you for this week in particular.
-  const { stock } = useStock(RECIPES, INGREDIENTS);
   const basket = useBasket(toBuy);
+  // Only selected ingredients need live requests; don't queue the full catalogue ahead of the shop.
+  const stock = useMemo(() => new Map<string, 'yes' | 'no'>(basket.items.filter(i=>i.product).map(i=>[i.ingredientId,'yes'])),[basket.items]);
 
   function addMeal(recipeId: string) {
     if (!RECIPES.some((r) => r.id === recipeId)) return;
@@ -71,8 +71,9 @@ export function App() {
   if (broken && !ignoreGate) return <Gate state={basket} onIgnore={() => setIgnoreGate(true)} />;
 
   return (
-    <div>
-      {tab !== "settings" && <Connection state={basket} onOpenSettings={() => setTab("settings")} />}
+    <div className="app-shell">
+      <header className="app-header"><span className="wordmark">Supermarket<span>.</span></span><Connection state={basket} onOpenSettings={() => setTab("settings")} /></header>
+      <fieldset className="workspace" disabled={basket.phase==='adding'}>
 
       {tab === "meals" && (
         <main className="sheet">
@@ -97,6 +98,7 @@ export function App() {
 
       {tab === "list" && (
         <main className="sheet">
+          <h1 className="page-title">Shopping list</h1>
           <HaveList
             requirements={requirements}
             pantry={pantry}
@@ -112,18 +114,18 @@ export function App() {
 
       {tab === "settings" && (
         <main className="sheet">
+          <h1 className="page-title">Settings</h1>
           <Settings
             state={basket}
             servings={servings}
             wanted={wanted}
             onServings={setServingsEverywhere}
             onWanted={setWanted}
-            picked={plan.length}
-            onClear={() => setPlan([])}
           />
         </main>
       )}
 
+      </fieldset>
       <div className="pad" />
 
       {tab !== "settings" && <AddToBasket state={basket} meals={plan.length} />}
