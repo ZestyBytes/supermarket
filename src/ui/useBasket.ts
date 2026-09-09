@@ -63,8 +63,10 @@ export interface BasketState {
   inBasket: number;
   /** True while the basket is being brought in line with the week. */
   syncing: boolean;
-  /** Do the outstanding basket work now rather than waiting. */
+  /** Make the Tesco basket match the shopping list. */
   sendNow: () => void;
+  /** How many lines would go in, and how many would come out, if you did. */
+  outstanding: { adding: number; removing: number };
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -99,8 +101,6 @@ export function useBasket(requirements: Requirement[]): BasketState {
   // Empty is an explicit user action. Do not immediately undo it by auto-syncing.
   const pausedAfterEmpty=useRef(false);
   const previousPlan=useRef('');
-  // Bumped when a sync fails, purely to give the effect a reason to run again.
-  const [attemptNo, setAttemptNo] = useState(0);
   // Everything this app has put in the basket, kept for the life of the page.
   // Without it, changing the week after adding turns your own shopping into
   // "someone else put this here", which is a confusing thing to be told.
@@ -333,30 +333,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
       // the wrong difference to send next time. The basket is the truth, so go
       // and read it.
       await readBasket().then(setBasket).catch(() => {});
-      // Then ask to be run again. Most of what goes wrong here is a moment's
-      // contention or a throttle, and the person did not ask for any of it, so
-      // it should not be their job to notice and press something.
-      setAttemptNo((n) => n + 1);
     } finally {
       busy.current = false;
       setSyncing(false);
     }
   }, [match, basket]);
-
-  // Act once the picking stops, not on every tap.
-  useEffect(() => {
-    // "ready" belongs here as much as "armed" does. Taking the last dinner out
-    // of the week, or ticking off the last thing on the list, leaves nothing to
-    // match and so never reaches "armed": without this the shopping for a week
-    // you have cancelled sits in the basket forever.
-    if (phase !== "armed" && phase !== "added" && phase !== "ready") return;
-    if (busy.current) return;
-    if (settled(reconcileBasket(match, basket, mine.current))) return;
-    // Longer after a failure: whatever went wrong wants a moment more than a
-    // person tapping wants, and hammering a busy basket is how it stays busy.
-    const timer = setTimeout(() => { void sync(); }, problem ? 6000 : 1400);
-    return () => clearTimeout(timer);
-  }, [phase, match, basket, sync, problem, attemptNo]);
 
 
   // One line per ingredient, in the order the list shows them.
@@ -404,6 +385,10 @@ export function useBasket(requirements: Requirement[]): BasketState {
     inBasket: items.filter((item) => item.state === "added").length,
     syncing,
     sendNow: () => { void sync(); },
+    outstanding: (() => {
+      const change = reconcileBasket(match, basket, mine.current);
+      return { adding: change.set.length, removing: change.remove.length };
+    })(),
   };
 }
 

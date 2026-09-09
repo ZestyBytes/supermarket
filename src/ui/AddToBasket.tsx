@@ -3,56 +3,72 @@ import type { BasketState } from "./useBasket";
 import { Icon } from "./Icon";
 
 /**
- * What the basket is doing, said quietly, with nothing to press.
+ * One button, at the bottom of the list it acts on.
  *
- * There used to be a button here, and before that a progress card with a
- * heading and a sentence. Both were the app asking a person to take part in
- * work it can finish on its own: choosing a dinner already meant "I want to
- * cook this", and pressing Add afterwards was a second decision standing in
- * for no new information.
+ * Doing it automatically was worse in practice than in principle. The work
+ * went off somewhere invisible, arrived a line at a time, and left no moment
+ * you could point at and say "that is when my basket changed", which is a
+ * strange thing not to know about your own shopping.
  *
- * So this reports and does not ask. It appears when there is something true to
- * say and disappears when the basket matches the week, because a line that
- * always says "fine" is a line nobody reads.
+ * So the decision comes back. What it does not go back to is a button that
+ * only adds: it applies the difference between this list and the basket, so
+ * ticking something off as already in the cupboard takes it out again, and
+ * the same press handles both.
  */
-export function AddToBasket({ state, meals }: { state: BasketState; meals: number }) {
-  if (meals === 0) return null;
+export function AddToBasket({ state }: { state: BasketState }) {
   if (state.phase === "offline" || state.phase === "disconnected") return null;
 
-  // A button, but only where one earns its place. It is not in the ordinary
-  // path, because picking the dinner was the decision and pressing send again
-  // afterwards is the same decision twice. It is here, where the automatic
-  // attempt has failed and waiting has stopped being an answer.
+  const shop = state.mode === "mock" ? "demo" : "Tesco";
+  const { adding, removing } = state.outstanding;
+  const busy = state.syncing;
+  const checking = state.items.some((item) => item.state === "checking");
+
   if (state.problem) {
     return (
       <div className="dock">
-        <div className="working working--bad" role="alert">
-          <span className="working__text">{state.problem}</span>
-          <button className="working__again" type="button" disabled={state.syncing} onClick={state.sendNow}>
-            {state.syncing ? "Sending" : "Send to Tesco now"}
-          </button>
-        </div>
+        <p className="dock__why" role="alert">{state.problem}</p>
+        <button className="dock__go" type="button" disabled={busy} onClick={state.sendNow}>
+          {busy ? "Sending" : "Try again"}
+        </button>
       </div>
     );
   }
 
-  const missing = state.match?.review.length ?? 0;
-  const pending = state.items.filter((item) => item.state === "ready").length;
-
-  // Nothing to say until something is actually in the basket. No bar, no
-  // heading, no "filling your basket": that is the app narrating work nobody
-  // asked to watch. Once there is a real number it stays on screen and moves,
-  // which tells you the same thing without ever being about itself.
-  if (state.inBasket === 0) return null;
+  if (adding === 0 && removing === 0) {
+    if (state.inBasket === 0) return null;
+    return (
+      <div className="dock">
+        <p className="done">
+          <Icon name="check" size={18} />
+          {state.inBasket} in your {shop} basket · {money(state.total)}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="dock">
-      <p className="done">
-        <Icon name="check" size={18} />
-        {state.inBasket} in your {state.mode === "mock" ? "demo" : "Tesco"} basket · {money(state.total)}
-        {pending > 0 && <span className="done__note">{pending} more going in</span>}
-        {pending === 0 && missing > 0 && <span className="done__note">{missing} to pick up yourself</span>}
-      </p>
+      <button className="dock__go" type="button" disabled={busy || checking} onClick={state.sendNow}>
+        {busy ? (
+          `Updating your ${shop} basket`
+        ) : checking ? (
+          "Checking prices"
+        ) : (
+          <>
+            <span>{label(adding, removing)}</span>
+            {adding > 0 && <span className="dock__price">{money(state.estimated)}</span>}
+          </>
+        )}
+      </button>
     </div>
   );
+}
+
+/** Say what the press will do, including the part that takes things away. */
+function label(adding: number, removing: number): string {
+  const goes = adding === 1 ? "Add 1 item" : `Add ${adding} items`;
+  const comes = removing === 1 ? "remove 1" : `remove ${removing}`;
+  if (adding === 0) return removing === 1 ? "Remove 1 item from basket" : `Remove ${removing} items from basket`;
+  if (removing === 0) return `${goes} to basket`;
+  return `${goes}, ${comes}`;
 }

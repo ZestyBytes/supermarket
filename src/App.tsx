@@ -39,10 +39,15 @@ export function App() {
   const basket = useBasket(toBuy);
   const { stock: shelf, prices } = useStock(RECIPES, INGREDIENTS);
 
+  // Only while a send is actually in flight. Without that, a meal you picked
+  // would turn for as long as you left it unsent, which says work is happening
+  // when the app is waiting for you.
   const progress = useCallback(
-    (recipeId: string) =>
-      mealProgress(recipeId, toBuy, (id) => basket.items.find((item) => item.ingredientId === id)?.state),
-    [toBuy, basket.items],
+    (recipeId: string) => {
+      const state = mealProgress(recipeId, toBuy, (id) => basket.items.find((item) => item.ingredientId === id)?.state);
+      return state === "working" && !basket.syncing ? "none" : state;
+    },
+    [toBuy, basket.items, basket.syncing],
   );
 
   // The catalogue sweep says what every dinner would cost and whether it can be
@@ -147,7 +152,7 @@ export function App() {
       </fieldset>
       <div className="pad" />
 
-      {tab !== "settings" && <AddToBasket state={basket} meals={plan.length} />}
+      {tab === "list" && <AddToBasket state={basket} />}
 
       <nav className="tabs" aria-label="Sections">
         <TabButton id="meals" now={tab} go={setTab} icon="meals" label="Meals" />

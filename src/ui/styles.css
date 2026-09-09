@@ -637,3 +637,4 @@ button { touch-action:manipulation; }
 @media (prefers-reduced-motion: no-preference) { .spinner { animation: spin .8s linear infinite; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .photo-check.is-working { background: rgba(255,255,255,.92); color: var(--accent); }
+.dock__why { margin: 0 0 8px; color: var(--price); font-size: 12.5px; font-weight: 600; text-align: center; text-wrap: balance; }

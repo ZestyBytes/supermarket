@@ -60,45 +60,52 @@ it('does not loop on a failed search',async()=>{
  expect(state.problem).toBe('temporary failure');
  expect(client.searchBatch).toHaveBeenCalledTimes(1);
 });
-it('fills the basket on its own once the picking stops',async()=>{
- // Nobody presses anything. Choosing the dinner was the decision; the shopping
- // is the consequence, and the app can draw it.
+it('does nothing to the basket until it is asked to',async()=>{
+ // The whole point of the button coming back: no write happens because you
+ // looked at a meal, only because you pressed.
+ vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
+ vi.mocked(client.addToBasket).mockResolvedValue({added:[{productId:'123'}],failed:[],basket:{total:1,items:[{id:'123',title:'Onions',price:1,qty:1}]}});
+ await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
+ await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+ expect(client.addToBasket).not.toHaveBeenCalled();
+ expect(state.outstanding).toEqual({adding:1,removing:0});
+});
+it('applies the difference when pressed, with absolute quantities',async()=>{
  vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
  vi.mocked(client.addToBasket).mockResolvedValue({added:[{productId:'123'}],failed:[],basket:{total:1,items:[{id:'123',title:'Onions',price:1,qty:1}]}});
  await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
  await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
- expect(client.addToBasket).not.toHaveBeenCalled();
- await act(async()=>{await vi.advanceTimersByTimeAsync(1500);});
+ await act(async()=>{state.sendNow();});
  expect(client.addToBasket).toHaveBeenCalledTimes(1);
- // Absolute quantities, so a later edit corrects the basket instead of adding to it.
+ // Absolute, so pressing again corrects the basket instead of doubling it.
  expect(vi.mocked(client.addToBasket).mock.calls[0][2]).toBe(true);
  expect(state.items[0].state).toBe('added');
-});
-it('waits for the picking to stop rather than writing on every tap',async()=>{
- vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
- vi.mocked(client.addToBasket).mockResolvedValue({added:[{productId:'123'}],failed:[],basket:{total:1,items:[{id:'123',title:'Onions',price:1,qty:1}]}});
- await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
- await act(async()=>{await vi.advanceTimersByTimeAsync(600);});
- await act(async()=>{view.update(createElement(Harness,{items:[{...req,qty:2}]}));});
- await act(async()=>{await vi.advanceTimersByTimeAsync(600);});
- await act(async()=>{view.update(createElement(Harness,{items:[{...req,qty:3}]}));});
- await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});
- await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});
- // Three taps in quick succession, one round trip.
- expect(client.addToBasket).toHaveBeenCalledTimes(1);
+ expect(state.outstanding).toEqual({adding:0,removing:0});
 });
 it('takes a line back out when it is ticked off as already in the cupboard',async()=>{
+ // One press, both directions: this is why the button applies a difference
+ // rather than only adding.
  vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
  vi.mocked(client.addToBasket).mockResolvedValue({added:[{productId:'123'}],failed:[],basket:{total:1,items:[{id:'123',title:'Onions',price:1,qty:1}]}});
  vi.mocked(client.removeFromBasket).mockResolvedValue({removed:[{productId:'123'}],failed:[],basket:{total:0,items:[]}});
  await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
- await act(async()=>{await vi.advanceTimersByTimeAsync(1800);});
- await act(async()=>{await vi.advanceTimersByTimeAsync(1800);});
- expect(client.addToBasket).toHaveBeenCalledTimes(1);
- // Ticking the cupboard box drops it from the requirements it is given.
+ await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
+ await act(async()=>{state.sendNow();});
+ expect(state.items[0].state).toBe('added');
  await act(async()=>{view.update(createElement(Harness,{items:[]}));});
- await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});
- await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});
+ await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
+ expect(state.outstanding).toEqual({adding:0,removing:1});
+ await act(async()=>{state.sendNow();});
  expect(client.removeFromBasket).toHaveBeenCalledTimes(1);
  expect(vi.mocked(client.removeFromBasket).mock.calls[0][1]).toEqual(['123']);
+});
+it('will not send twice while a send is still going',async()=>{
+ vi.mocked(client.searchBatch).mockImplementation(async queries=>queries.map(query=>({query,results:[{id:'123',title:'Onions 3 pack',price:1}]})));
+ let finish!:(v:Awaited<ReturnType<typeof client.addToBasket>>)=>void;
+ vi.mocked(client.addToBasket).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>{view=create(createElement(Harness,{items:[req]}));});
+ await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
+ await act(async()=>{state.sendNow();state.sendNow();});
+ expect(client.addToBasket).toHaveBeenCalledTimes(1);
+ await act(async()=>{finish({added:[{productId:'123'}],failed:[],basket:{total:1,items:[{id:'123',title:'Onions',price:1,qty:1}]}});});
 });
