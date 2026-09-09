@@ -1,5 +1,5 @@
 import { spawn, execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +52,48 @@ async function git(...args) {
   }
 }
 
+/**
+ * Whether node_modules is older than the lockfile that describes it.
+ *
+ * npm writes node_modules/.package-lock.json on every install, so comparing
+ * the two timestamps says whether an install has happened since the
+ * dependencies last changed. Checking out a commit touches the files it
+ * updates, so a pull done by hand shows up here exactly like one done by us.
+ *
+ * Without this, pulling in a terminal and then double-clicking the shortcut
+ * fails on the first missing module, backs off, and keeps failing, with the
+ * fix being a command nobody has been told to run.
+ */
+async function needsInstall() {
+  try {
+    const [lock, installed] = await Promise.all([
+      stat(new URL('../package-lock.json', import.meta.url)),
+      stat(new URL('../node_modules/.package-lock.json', import.meta.url)),
+    ]);
+    return lock.mtimeMs > installed.mtimeMs;
+  } catch {
+    // No lockfile is nothing to check against; no node_modules certainly
+    // needs one, and stat failing there is how that shows up.
+    try {
+      await stat(new URL('../node_modules', import.meta.url));
+      return false;
+    } catch {
+      return true;
+    }
+  }
+}
+
+async function install(why) {
+  say(why);
+  try {
+    await run(WINDOWS ? 'npm.cmd' : 'npm', ['install', '--silent'], { cwd: root, shell: WINDOWS });
+    return true;
+  } catch {
+    say('npm install did not finish cleanly. Starting anyway.');
+    return false;
+  }
+}
+
 /** True when there is nothing of yours to lose by pulling. */
 async function clean() {
   const unstaged = await git('diff', '--quiet');
@@ -95,14 +137,7 @@ async function update() {
     return false;
   }
 
-  if ((await lockHash()) !== before) {
-    say('Dependencies changed. Installing.');
-    try {
-      await run(WINDOWS ? 'npm.cmd' : 'npm', ['install', '--silent'], { cwd: root, shell: WINDOWS });
-    } catch {
-      say('npm install did not finish cleanly. Starting anyway.');
-    }
-  }
+  if ((await lockHash()) !== before) await install('Dependencies changed. Installing.');
 
   const subject = await git('log', '-1', '--pretty=%s');
   say(`Updated to: ${subject.out}`);
@@ -204,6 +239,8 @@ async function main() {
   say(`Checking GitHub every ${CHECK_MS / 60000} minutes.`);
 
   await update();
+  // Catches the pull you did yourself in a terminal, not just ours.
+  if (await needsInstall()) await install('Dependencies have changed since the last install. Installing.');
   let settleUntil = 0;
 
   async function restart(why, deliberate = false) {
