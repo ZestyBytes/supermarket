@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, writeFile, unlink } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, stat, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
@@ -35,6 +35,62 @@ const RATE_WAITS = [1000, 3000, 8000];
 const RATE_BUDGET_MS = 45000;
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Throw away receipts older than this.
+ *
+ * A receipt exists to stop one attempt being replayed, which matters for
+ * minutes, not for ever. They were harmless while a shop was a button someone
+ * pressed once a week; now that the basket keeps itself in step there is a
+ * file per change, and a folder that only grows is a slow leak with a
+ * respectable excuse.
+ */
+const RECEIPT_KEEP_MS = 24 * 60 * 60 * 1000;
+
+async function forgetOldReceipts(directory) {
+  try {
+    const names = await readdir(directory);
+    await Promise.all(names.filter(name => name.endsWith('.json')).map(async name => {
+      const path = join(directory, name);
+      const age = await stat(path).then(s => Date.now() - s.mtimeMs).catch(() => 0);
+      if (age > RECEIPT_KEEP_MS) await unlink(path).catch(() => {});
+    }));
+  } catch {
+    // Housekeeping. Never a reason to fail a shop.
+  }
+}
+
+/** A lock older than this was left by something that is no longer running. */
+const LOCK_STALE_MS = 120000;
+
+/**
+ * One writer at a time, without wedging forever when a writer dies.
+ *
+ * The lock exists so two writes cannot interleave and leave a basket nobody
+ * can explain. But it was only ever removed in a finally block, so a process
+ * killed mid-write, which is exactly what a supervisor restarting the app
+ * does, left the file behind and every basket write from then on failed with
+ * "another attempt is running". Nothing was running. There was a file.
+ *
+ * So a lock that is older than any real attempt could be is taken over. It
+ * records who holds it and since when, which is what makes that judgement
+ * something better than a guess.
+ */
+async function takeLock(lockPath) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const lock = await open(lockPath, 'wx');
+      await lock.write(JSON.stringify({ pid: process.pid, since: new Date().toISOString() }));
+      return lock;
+    } catch (error) {
+      if (error.code !== 'EEXIST' || attempt > 0) break;
+      const age = await stat(lockPath).then(s => Date.now() - s.mtimeMs).catch(() => 0);
+      if (age < LOCK_STALE_MS) break;
+      await unlink(lockPath).catch(() => {});
+    }
+  }
+  throw retailerError('BASKET_UNCERTAIN', 'Another basket update is already running. It will finish on its own.');
+}
 
 
 /**
@@ -126,7 +182,7 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
   for (const item of items) combined.set(item.productId, (combined.get(item.productId) ?? 0) + item.qty);
   await mkdir(directory, { recursive: true });
   const lockPath = join(directory, 'write.lock');
-  const lock = await open(lockPath, 'wx').catch(() => { throw retailerError('BASKET_UNCERTAIN', 'Another basket attempt is running or needs checking. Inspect Tesco before retrying.'); });
+  const lock = await takeLock(lockPath);
   const receiptPath = join(directory, `${attemptId}.json`);
   try {
     const existing = await readFile(receiptPath, 'utf8').catch(e => { if (e.code === 'ENOENT') return null; throw e; });
@@ -159,6 +215,7 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
     }));
     const result = { ok: true, added, failed, basket, verified: failed.length === 0 };
     await writeFile(receiptPath, JSON.stringify({ result }), { mode: 0o600 });
+    await forgetOldReceipts(directory);
     return result;
   } finally { await lock.close(); await unlink(lockPath); }
 }
@@ -180,7 +237,7 @@ export async function removeFromBasket(client, input, directory = join(homedir()
   const { attemptId, productIds } = removalSchema.parse(input);
   await mkdir(directory, { recursive: true });
   const lockPath = join(directory, 'write.lock');
-  const lock = await open(lockPath, 'wx').catch(() => { throw retailerError('BASKET_UNCERTAIN', 'Another basket attempt is running or needs checking. Inspect Tesco before retrying.'); });
+  const lock = await takeLock(lockPath);
 
   try {
     const before = await patiently(() => client.readBasket(), sleep);

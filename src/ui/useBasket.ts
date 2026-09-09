@@ -88,6 +88,13 @@ export function useBasket(requirements: Requirement[]): BasketState {
   const [basket, setBasket] = useState<RetailerBasket | null>(null);
   const [failures, setFailures] = useState<Map<string, string>>(new Map());
   const [syncing, setSyncing] = useState(false);
+  // A ref, not the state, because two timers can both fire before React has
+  // re-rendered with syncing:true, and the second one taking the write lock
+  // out from under the first is how "another basket update is running" happens
+  // to a person who did nothing but pick a second dinner.
+  const busy = useRef(false);
+  // Bumped when a sync fails, purely to give the effect a reason to run again.
+  const [attemptNo, setAttemptNo] = useState(0);
   // Everything this app has put in the basket, kept for the life of the page.
   // Without it, changing the week after adding turns your own shopping into
   // "someone else put this here", which is a confusing thing to be told.
@@ -270,9 +277,11 @@ export function useBasket(requirements: Requirement[]): BasketState {
    * Waiting for the picking to stop turns all of it into one round.
    */
   const sync = useCallback(async () => {
+    if (busy.current) return;
     const change = reconcileBasket(match, basket, mine.current);
     if (settled(change)) return;
 
+    busy.current = true;
     setSyncing(true);
     setProblem(undefined);
     try {
@@ -295,7 +304,12 @@ export function useBasket(requirements: Requirement[]): BasketState {
       if (latest) setBasket(latest);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
+      // Ask to be run again. Most of what goes wrong here is a moment's
+      // contention or a throttle, and the person did not ask for any of it, so
+      // it should not be their job to notice and press something.
+      setAttemptNo((n) => n + 1);
     } finally {
+      busy.current = false;
       setSyncing(false);
     }
   }, [match, basket]);
@@ -307,10 +321,13 @@ export function useBasket(requirements: Requirement[]): BasketState {
     // match and so never reaches "armed": without this the shopping for a week
     // you have cancelled sits in the basket forever.
     if (phase !== "armed" && phase !== "added" && phase !== "ready") return;
+    if (busy.current) return;
     if (settled(reconcileBasket(match, basket, mine.current))) return;
-    const timer = setTimeout(() => { void sync(); }, 1400);
+    // Longer after a failure: whatever went wrong wants a moment more than a
+    // person tapping wants, and hammering a busy basket is how it stays busy.
+    const timer = setTimeout(() => { void sync(); }, problem ? 6000 : 1400);
     return () => clearTimeout(timer);
-  }, [phase, match, basket, sync]);
+  }, [phase, match, basket, sync, problem, attemptNo]);
 
 
   // One line per ingredient, in the order the list shows them.

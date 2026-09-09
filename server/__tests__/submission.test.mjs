@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile, utimes, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -187,5 +187,24 @@ describe('verified basket submission', () => {
 
     // Two, not five: the plan says two, and the basket now says two.
     expect(held.get('a')).toBe(2);
+  });
+
+  it('clears out receipts old enough to be no use to anyone', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const ancient = join(dir, `${randomUUID()}.json`);
+    await writeFile(ancient, '{}');
+    const old = new Date(Date.now() - 3 * 24 * 60 * 60_000);
+    await utimes(ancient, old, old);
+
+    const held = new Map();
+    const client = {
+      readBasket: async () => ({ total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) }),
+      setQuantity: async (id, qty) => { held.set(id, qty); },
+    };
+    await submitBasket(client, { attemptId: randomUUID(), items: [{ productId: 'a', qty: 1 }] }, dir, async () => {});
+
+    const left = await readdir(dir);
+    // The fresh one stays: it is what stops an attempt being replayed.
+    expect(left.filter((f) => f.endsWith('.json'))).toHaveLength(1);
   });
 });

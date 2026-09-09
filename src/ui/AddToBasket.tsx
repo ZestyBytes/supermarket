@@ -33,21 +33,11 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
   }
 
   const missing = state.match?.review.length ?? 0;
-  const waiting = state.items.filter((item) => item.state === "ready").length;
 
-  if (state.syncing || waiting > 0) {
-    return (
-      <div className="dock">
-        <div className="working" role="status" aria-live="polite">
-          <span className="working__text">
-            Filling your Tesco basket
-            <span className="working__n">{state.inBasket} of {state.inBasket + waiting}</span>
-          </span>
-          <progress aria-label="Items added" max={state.inBasket + waiting} value={state.inBasket} />
-        </div>
-      </div>
-    );
-  }
+  // Nothing at all while it works. Filling the basket is not a task the person
+  // is doing, so a progress bar for it is the app talking about itself. What
+  // is worth saying is what ended up in there, and that can wait until it has.
+  if (state.syncing || state.items.some((item) => item.state === "ready")) return null;
 
   if (state.inBasket === 0) return null;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile, utimes, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -118,5 +118,33 @@ describe('taking things out of the basket', () => {
     await expect(
       removeFromBasket(client, { attemptId: randomUUID(), productIds: ['../../etc/passwd'] }, dir, async () => {}),
     ).rejects.toThrow();
+  });
+
+  // A process killed mid-write, which is exactly what restarting the app does,
+  // used to leave the lock file behind and fail every basket write from then
+  // on with "another attempt is running". Nothing was running. There was a file.
+  it('takes over a lock left behind by something that is no longer running', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-removal-'));
+    const stale = join(dir, 'write.lock');
+    await writeFile(stale, JSON.stringify({ pid: 999999 }));
+    const old = new Date(Date.now() - 10 * 60_000);
+    await utimes(stale, old, old);
+
+    const { client, held } = shop({ a: 1 });
+    const result = await removeFromBasket(client, { attemptId: randomUUID() }, dir, async () => {});
+
+    expect(result.verified).toBe(true);
+    expect(held.size).toBe(0);
+    expect(await readdir(dir)).not.toContain('write.lock');
+  });
+
+  it('still refuses when another write really is in flight', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-removal-'));
+    await writeFile(join(dir, 'write.lock'), JSON.stringify({ pid: process.pid }));
+
+    const { client } = shop({ a: 1 });
+    await expect(
+      removeFromBasket(client, { attemptId: randomUUID() }, dir, async () => {}),
+    ).rejects.toThrow(/already running/);
   });
 });
