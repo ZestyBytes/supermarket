@@ -48,6 +48,115 @@ chrome.runtime.onInstalled.addListener(() => { void lookLikeTesco(); });
 chrome.runtime.onStartup.addListener(() => { void lookLikeTesco(); });
 void lookLikeTesco();
 
+/* ---------- fetching the token, rather than waiting for it ---------- */
+
+// Not a secret: Tesco ships this in the JavaScript every visitor downloads.
+const PUBLIC_KEY = 'TvOSZJHlEk0pjniDGQFAc9Q59WGAR4dA';
+
+/**
+ * Run in Tesco's page and bring back its token.
+ *
+ * Everything before this waited to be handed the token: by a webRequest event
+ * that fires into a sleeping worker, or by a content script that only injects
+ * when a page navigates, so an already-open Tesco tab was never touched. Both
+ * depend on the person doing things in an order nobody told them about, and
+ * both failed silently when they did not.
+ *
+ * This asks. It reaches into a Tesco tab that is already open, reads what the
+ * page's own scripts read, and returns it. No listening, no ordering, no
+ * reload.
+ */
+function readTokenInPage() {
+  const looksLikeToken = /^(Bearer\s+)?ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./;
+  const found = [];
+
+  const consider = (value) => {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (looksLikeToken.test(trimmed)) found.push(trimmed.startsWith('Bearer') ? trimmed : `Bearer ${trimmed}`);
+  };
+
+  for (const store of [window.localStorage, window.sessionStorage]) {
+    let keys = [];
+    try { keys = Object.keys(store); } catch { continue; }
+    for (const key of keys) {
+      let raw = '';
+      try { raw = store.getItem(key) || ''; } catch { continue; }
+      consider(raw);
+      if (raw.startsWith('{') || raw.startsWith('[')) {
+        try {
+          // A token is as often a field inside a blob as a value on its own,
+          // and blobs nest, so walk the whole thing rather than one level.
+          const seen = [JSON.parse(raw)];
+          while (seen.length) {
+            const node = seen.pop();
+            if (typeof node === 'string') consider(node);
+            else if (node && typeof node === 'object') for (const value of Object.values(node)) seen.push(value);
+          }
+        } catch { /* not JSON after all */ }
+      }
+    }
+  }
+
+  // The longest is the likeliest: a JWT with real claims beats a short stub.
+  found.sort((a, b) => b.length - a.length);
+  return { token: found[0], howMany: found.length, keys: Object.keys(window.localStorage || {}).length };
+}
+
+async function tescoTab() {
+  // Groceries first, since that is the page that holds a grocery session, but
+  // any Tesco tab is worth asking before opening a new one.
+  const [open] = await chrome.tabs.query({ url: 'https://www.tesco.com/groceries/*' });
+  if (open) return open;
+  const [elsewhere] = await chrome.tabs.query({ url: 'https://www.tesco.com/*' });
+  if (elsewhere) return elsewhere;
+  const made = await chrome.tabs.create({ url: TROLLEY, active: false });
+  // Long enough for the page's own scripts to have run and stored a token.
+  await new Promise(resolve => setTimeout(resolve, 6000));
+  return made;
+}
+
+async function grabToken() {
+  let tab;
+  try {
+    tab = await tescoTab();
+  } catch (error) {
+    await note({ grab: 'could not open a Tesco tab' });
+    return false;
+  }
+
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: readTokenInPage,
+    });
+    const answer = result?.result ?? {};
+    if (answer.token) {
+      const { tescoHeaders = {} } = await chrome.storage.session.get('tescoHeaders');
+      await chrome.storage.session.set({
+        tescoHeaders: {
+          // The key is public: Tesco ships it in the page bundles every visitor
+          // downloads. It is here only so a freshly read token is not sent on
+          // its own, which Tesco refuses.
+          'x-apikey': PUBLIC_KEY,
+          ...tescoHeaders,
+          authorization: answer.token,
+        },
+      });
+      const many = answer.howMany === 1 ? '1 candidate' : `${answer.howMany} candidates`;
+      await note({ grab: `read from the Tesco page (${many})`, token: 'captured just now' });
+      return true;
+    }
+    const keys = answer.keys ?? 0;
+    await note({ grab: `looked in the Tesco page: no token among ${keys} stored ${keys === 1 ? 'key' : 'keys'}` });
+    return false;
+  } catch (error) {
+    await note({ grab: `could not read the Tesco page: ${String(error?.message || error).slice(0, 70)}` });
+    return false;
+  }
+}
+
 /* ---------- the app itself ---------- */
 
 /**
@@ -120,8 +229,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // app says "not signed in" to someone who plainly is. Rather than asking a
   // person to go and refresh a tab, fetch it.
   if (message?.type === 'tesco-refresh') {
-    mintQuietly()
-      .then(() => reply({ ok: true }))
+    // Go and get it, rather than nudging a page and hoping something notices.
+    grabToken()
+      .then((got) => reply({ ok: got }))
       .catch(() => reply({ ok: false }));
     return true;
   }

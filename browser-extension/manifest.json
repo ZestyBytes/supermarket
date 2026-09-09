@@ -9,7 +9,8 @@
     "storage",
     "alarms",
     "tabs",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "scripting"
   ],
   "host_permissions": [
     "https://www.tesco.com/*",
