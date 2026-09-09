@@ -589,3 +589,4 @@ button { touch-action:manipulation; }
 .swaps__wrap { margin: 0 0 12px 46px; }
 .swaps__for { margin: 0 0 7px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .swaps { margin: 0; }
+.dock__note--money { color: var(--price); font-weight: 600; }

@@ -10,6 +10,7 @@ import {
 } from "../domain/retailerClient";
 import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
 import { broaderTermFor } from "../domain/broaden";
+import { goodsTotal } from "../domain/minimumBasket";
 import { newAttemptId } from "../domain/ids";
 import type { Requirement } from "../domain/types";
 
@@ -50,6 +51,13 @@ export interface BasketState {
   theirs: RetailerBasket["items"];
   total: number;
   estimated: number;
+  /**
+   * What the goods would come to once this week goes in: what is in the basket
+   * already, plus what we are about to add. The number Tesco's minimum is
+   * judged against, so it counts everything in there, including whatever
+   * someone else put in.
+   */
+  projected: number;
   progress: {done:number;total:number};
   add: () => void;
   recheck: () => void;
@@ -286,6 +294,8 @@ export function useBasket(requirements: Requirement[]): BasketState {
     return { ingredientId: id, state: "checking" };
   });
 
+  const estimated = match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0;
+
   const ours = new Set([...(match?.choices.map((c) => c.product.id) ?? []), ...mine.current]);
   const theirs = basket ? basket.items.filter((item) => !ours.has(item.id)) : NOTHING;
 
@@ -298,7 +308,13 @@ export function useBasket(requirements: Requirement[]): BasketState {
     items,
     theirs,
     total: basket?.total ?? 0,
-    estimated: match?.choices.reduce((sum, choice) => sum + choice.cost, 0) ?? 0,
+    estimated,
+    // Once the shop is in, the basket itself is the whole story; before that
+    // it is the basket plus what the button would put there.
+    projected:
+      phase === "added"
+        ? goodsTotal(basket?.items ?? [])
+        : Math.round((goodsTotal(basket?.items ?? []) + estimated) * 100) / 100,
     progress,
     add,
     recheck: connect,

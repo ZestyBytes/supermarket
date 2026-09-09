@@ -54,6 +54,16 @@ export function money(n: number): string {
   return `${n < 0 ? "-" : ""}£${Math.abs(n).toFixed(2)}`;
 }
 
+/**
+ * Money with the pennies dropped when there are none.
+ *
+ * For round figures quoted as rules rather than prices: "Tesco's £40 minimum"
+ * is how the rule is written down, and "£40.00" reads like a till receipt.
+ */
+export function poundsOnly(n: number): string {
+  return n % 1 === 0 ? `£${n}` : money(n);
+}
+
 function trim(n: number): string {
   return String(Math.round(n * 100) / 100);
 }
