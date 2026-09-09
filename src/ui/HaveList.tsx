@@ -82,7 +82,13 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onS
                         {status?.product ? status.product.title : requirement.ingredient.name}
                         {swappable && <Icon name={picking ? "up" : "down"} size={15} />}
                       </span>
-                      {note && <span className={`tick__for${status && bad(status) ? " tick__for--bad" : ""}`}>{note}</span>}
+                      {note && (
+                        <span
+                          className={`tick__for${status && bad(status) ? " tick__for--bad" : ""}${status?.instead ? " tick__for--swap" : ""}`}
+                        >
+                          {note}
+                        </span>
+                      )}
                     </Body>
 
                     {status?.state === "added" && (
@@ -92,12 +98,23 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onS
                     )}
                     {!have && (
                       <span className="tick__qty">
-                        {status?.cost != null ? money(status.cost) : formatQty(requirement.qty, requirement.ingredient)}
+                        {status?.cost != null ? (
+                          <>
+                            {(status.packs ?? 1) > 1 && <b className="tick__packs">{status.packs} ×</b>}
+                            {money(status.cost)}
+                          </>
+                        ) : (
+                          formatQty(requirement.qty, requirement.ingredient)
+                        )}
                       </span>
                     )}
                   </div>
 
                   {picking && (
+                    <div className="swaps__wrap">
+                    <p className="swaps__for">
+                      {requirement.ingredient.name} for {requirement.sources.map((source) => source.recipeName).join(", ")}
+                    </p>
                     <ul className="swaps" aria-label={`Other products for ${requirement.ingredient.name}`}>
                       {status?.choices?.map((option) => (
                         <li key={option.id}>
@@ -115,6 +132,7 @@ export function HaveList({ requirements, pantry, statuses, theirs, onToggle, onS
                         </li>
                       ))}
                     </ul>
+                    </div>
                   )}
                 </li>
               );
@@ -186,8 +204,13 @@ function bad(status: ItemStatus) {
 function aside(requirement: Requirement, status?: ItemStatus): string | undefined {
   if (!status) return undefined;
   if (status.state === "checking") return "Checking Tesco";
-  if (status.state === "missing") return "Tesco has nothing for this";
+  // We know our searches came back empty. We do not know Tesco's whole shelf,
+  // and saying so as though we did is a claim the app cannot support.
+  if (status.state === "missing") return "We could not find this at Tesco";
   if (status.state === "failed") return `Not added. ${status.why ?? ""}`.trim();
+  // This one survives being bought, because it is the thing you would want to
+  // know when the shopping turns up and it is not what you asked for.
+  if (status.instead) return `Instead of ${status.instead.toLowerCase()}`;
   if (status.state === "added") return undefined;
   // Once there is a product on the line, the line is finished. Which dinners
   // wanted it only helps while there is nothing else to look at.

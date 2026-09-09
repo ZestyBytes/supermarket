@@ -9,6 +9,7 @@ import {
   type RetailerBasket,
 } from "../domain/retailerClient";
 import { chooseLiveProducts, searchTermFor, swapChoice, type LiveMatch, type RetailerProduct } from "../domain/liveMatch";
+import { broaderTermFor } from "../domain/broaden";
 import { newAttemptId } from "../domain/ids";
 import type { Requirement } from "../domain/types";
 
@@ -32,6 +33,8 @@ export interface ItemStatus {
   why?: string;
   /** Everything else Tesco offered, so a wrong pick can be corrected. */
   choices?: RetailerProduct[];
+  /** The variety the recipe asked for, when a wider search found this instead. */
+  instead?: string;
 }
 
 export interface BasketState {
@@ -164,9 +167,38 @@ export function useBasket(requirements: Requirement[]): BasketState {
       }
 
       if (cancelled) return;
+      const widened = new Set<string>();
+      const empty = requirements.filter(
+        (requirement) =>
+          (found.get(requirement.ingredient.id)?.length ?? 0) === 0 &&
+          !failed.has(requirement.ingredient.id) &&
+          broaderTermFor(requirement),
+      );
+
+      if (empty.length > 0) {
+        try {
+          for (let offset = 0; offset < empty.length; offset += 4) {
+            if (cancelled) return;
+            const group = empty.slice(offset, offset + 4);
+            const answers = await searchBatch(group.map((r) => broaderTermFor(r)!));
+            if (cancelled) return;
+            for (const requirement of group) {
+              const answer = answers.find((a) => a.query === broaderTermFor(requirement));
+              if (!answer || answer.error || answer.results.length === 0) continue;
+              found.set(requirement.ingredient.id, answer.results);
+              widened.add(requirement.ingredient.id);
+            }
+          }
+        } catch {
+          // The wider search is a second chance, not a requirement. Losing it
+          // leaves the shop exactly as good as it was without it.
+        }
+      }
+
+      if (cancelled) return;
       attempt.current = newAttemptId();
       matchedKey.current=key;
-      setMatch(chooseLiveProducts(found, requirements, failed));
+      setMatch(chooseLiveProducts(found, requirements, failed, widened));
       setPhase("armed");
     },180);
 
@@ -238,7 +270,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
     const missing = match?.review.some((r) => r.requirement.ingredient.id === id);
     const done = added.get(id);
 
-    if (done) return { ingredientId: id, state: done, product: choice?.product, packs: choice?.packs, cost: choice?.cost, why: failures.get(id) };
+    if (done) return { ingredientId: id, state: done, product: choice?.product, packs: choice?.packs, cost: choice?.cost, why: failures.get(id), instead: choice?.instead };
     if (missing) return { ingredientId: id, state: "missing" };
     if (choice) {
       return {
@@ -248,6 +280,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
         packs: choice.packs,
         cost: choice.cost,
         choices: phase==='armed'?choice.candidates:undefined,
+        instead: choice.instead,
       };
     }
     return { ingredientId: id, state: "checking" };

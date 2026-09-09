@@ -32,6 +32,12 @@ export interface LiveChoice {
    * measure than the recipe. Worth showing quietly; not worth refusing over.
    */
   assumed?: "size" | "unit";
+  /**
+   * Set when Tesco had nothing for the exact variety and this came from a
+   * wider search: the name the recipe asked for, so the list can say what it
+   * bought instead rather than quietly handing you the wrong thing.
+   */
+  instead?: string;
 }
 
 export interface LiveReview {
@@ -66,6 +72,8 @@ export function chooseLiveProducts(
   results: Map<string, RetailerProduct[]>,
   requirements: Requirement[],
   failures: Set<string> = new Set(),
+  /** Ingredients whose results came from the wider fallback search. */
+  widened: Set<string> = new Set(),
 ): LiveMatch {
   const choices: LiveChoice[] = [];
   const review: LiveReview[] = [];
@@ -116,6 +124,7 @@ export function chooseLiveProducts(
         alternatives: others,
         candidates,
         assumed: readable ? "unit" : "size",
+        instead: widened.has(requirement.ingredient.id) ? requirement.ingredient.name : undefined,
       });
       continue;
     }
@@ -130,6 +139,7 @@ export function chooseLiveProducts(
       surplus: best.surplus,
       alternatives: rest.map((entry) => entry.product),
       candidates,
+      instead: widened.has(requirement.ingredient.id) ? requirement.ingredient.name : undefined,
     });
   }
 
@@ -201,6 +211,7 @@ export function swapChoice(choice: LiveChoice, product: RetailerProduct): LiveCh
       alternatives: others,
       candidates: choice.candidates,
       assumed: size ? "unit" : "size",
+      instead: choice.instead,
     };
   }
 
@@ -214,5 +225,6 @@ export function swapChoice(choice: LiveChoice, product: RetailerProduct): LiveCh
     surplus: Math.round((packs * size.qty - requirement.qty) * 100) / 100,
     alternatives: others,
     candidates: choice.candidates,
+    instead: choice.instead,
   };
 }

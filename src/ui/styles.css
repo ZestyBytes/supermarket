@@ -17,6 +17,7 @@
   --faint:   #9A9488;
   --line:    #E3DFD6;
   --hair:    #EDE9E0;
+  --night:   #16181A;
 
   --accent:      #2E4A82;
   --accent-ink:  #22375F;
@@ -487,14 +488,27 @@ button { touch-action:manipulation; }
 :root { --paper:#f8faf8; --surface:#fff; --ink:#19372b; --muted:#5c6d64; --faint:#6d7b72; --accent:#23563f; --accent-ink:#193e2e; --accent-soft:#e8f0e9; --accent-line:#d6e3d9; --accent-mute:#566e60; --hair:#e7ede8; --sunk:#f0f4f0; --glass:rgba(255,255,255,.82); --floating-shadow:0 8px 32px rgba(24,48,34,.13); }
 .app-shell { max-width:960px; margin:0 auto; }
 .workspace { border:0; margin:0; padding:0; min-width:0; }
-.app-header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:22px 20px 8px; }
-.wordmark { font-size:18px; font-weight:750; letter-spacing:-.035em; }
-.wordmark > span { color:#648970; }
-.connection-pill { display:flex; align-items:center; gap:6px; min-height:44px; padding:4px 0 4px 8px; font-size:12px; font-weight:500; cursor:pointer; color:var(--muted); white-space:nowrap; }
-.connection-dot { width:6px; height:6px; background:#43835a; border-radius:50%; flex:none; }
-.connection-pill--bad { color:#9c3c2e; }
-.connection-pill--bad .connection-dot { background:currentColor; }
-.sheet { width:100%; margin:0 auto; padding:12px 20px 210px; gap:24px; }
+/* A dark bar the same on every page, so the app has one horizon line and the
+   pages hang below it rather than each starting from nothing. */
+.app-header {
+  position:sticky; top:0; z-index:40;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 20px 12px;
+  background:var(--night); color:#F4F2ED;
+}
+.wordmark { font-size:18px; font-weight:750; letter-spacing:-.035em; color:inherit; }
+.wordmark > span { color:#8FB79C; }
+.connection-pill {
+  display:flex; align-items:center; gap:7px; min-height:44px; padding:4px 2px 4px 10px;
+  font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap;
+  color:rgba(244,242,237,.82); background:none; border:0;
+}
+.connection-dot { width:8px; height:8px; background:#4FBF7B; border-radius:50%; flex:none; }
+/* Never colour alone: the bad state says so in words as well, because on a
+   dark bar a red dot and a green one are the same dot to a lot of people. */
+.connection-pill--bad { color:#FFC4B4; font-weight:650; }
+.connection-pill--bad .connection-dot { background:#FF7A5C; }
+.sheet { width:100%; margin:0 auto; padding:18px 20px 210px; gap:24px; }
 .page-title,.fresh-controls h1 { font-size:27px; line-height:1.2; letter-spacing:-.035em; font-weight:650; }
 .fresh-controls { margin:0; justify-content:space-between; align-items:center; }
 .fresh-controls p { font-size:13px; color:var(--muted); margin-top:6px; }
@@ -567,6 +581,11 @@ button { touch-action:manipulation; }
 .note { font-size:12px; }
 .pad { display:none; }
 .done { padding:12px; font-size:14px; }
-@media (min-width:700px) { .app-header { padding:26px 30px 12px; } .sheet { padding:16px 30px 220px; } .fresh-controls h1,.page-title { font-size:32px; } .fresh-grid { gap:20px; } .photo-name { font-size:16px; } .fresh-thumbs { max-width:100%; } }
+@media (min-width:700px) { .app-header { padding:16px 30px; } .sheet { padding:16px 30px 220px; } .fresh-controls h1,.page-title { font-size:32px; } .fresh-grid { gap:20px; } .photo-name { font-size:16px; } .fresh-thumbs { max-width:100%; } }
 @media (max-width:360px) { .app-header,.sheet { padding-left:14px; padding-right:14px; } .wordmark { font-size:16px; } .connection-pill { font-size:11px; } .photo-name { font-size:13px; } }
 @media (prefers-reduced-transparency:reduce) { .tabs,.task-progress,.photo-name { background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; } }
+.tick__packs { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.tick__for--swap { color: var(--accent); font-weight: 600; }
+.swaps__wrap { margin: 0 0 12px 46px; }
+.swaps__for { margin: 0 0 7px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.swaps { margin: 0; }

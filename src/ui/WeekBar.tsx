@@ -10,11 +10,23 @@ interface Props {
   onRemove: (key: string) => void;
 }
 
+/**
+ * How the week is going.
+ *
+ * "6 of 5 dinners picked" reads as an error in a form you have not filled in
+ * wrong. Past the target the target stops being the point, so it goes away.
+ */
+function count(picked: number, wanted: number): string {
+  if (picked === 0) return `No dinners picked yet. ${wanted} to go`;
+  if (picked >= wanted) return picked === 1 ? "1 dinner picked" : `${picked} dinners picked`;
+  return `${picked} of ${wanted} dinners picked`;
+}
+
 export function WeekBar({ plan, recipes, wanted, onSurprise, onRemove }: Props) {
   return (
     <section className="fresh-week" aria-label="This week">
       <div className="fresh-controls">
-        <div><h1>Your week</h1><p>{plan.length} of {wanted} dinners picked</p></div>
+        <div><h1>Your week</h1><p>{count(plan.length, wanted)}</p></div>
         <button type="button" className="fresh-pick" onClick={onSurprise}>
           <Icon name="retry" size={16} />
           Pick for me
