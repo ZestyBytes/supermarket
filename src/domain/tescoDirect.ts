@@ -87,7 +87,8 @@ export function createTescoTransport({
       throw new TescoError("OFFLINE", "The request to Tesco did not get through.");
     }
 
-    lastAnswer = `${response.status} ${response.statusText}${borrowed?.authorization ? ", with a token" : ", no token"}`;
+    const sent = ["authorization", "x-apikey", "customer-uuid"].filter((name) => borrowed?.[name]);
+    lastAnswer = `${response.status} ${response.statusText || ""}`.trim() + `, sent: ${sent.join(", ") || "nothing but cookies"}`;
 
     if (response.status === 401 || response.status === 403) {
       throw new TescoError("SESSION_EXPIRED", "Tesco needs you to sign in again. Open a Tesco tab, then try again.");

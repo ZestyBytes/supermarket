@@ -5,6 +5,49 @@ const REFRESH_MINUTES = 30;   // Tesco's token lasts about an hour.
 const WINDOW_MS = 300000;     // A single Connect click stays open this long.
 let busy = false;
 
+/* ---------- looking like the page we are standing in for ---------- */
+
+/**
+ * Send Tesco's own origin on our calls to its API.
+ *
+ * Tesco answered 403 to a request that carried a valid token, which is a
+ * refusal of the caller rather than of the credentials. A fetch from an
+ * extension page announces `chrome-extension://...` as its origin, and an API
+ * that expects its own site is entitled to decline that.
+ *
+ * Origin and Referer cannot be set from fetch: browsers forbid it, precisely
+ * so a page cannot claim to be another one. An extension with permission for
+ * the host may do it through declarativeNetRequest, which is the sanctioned
+ * route and applies only to requests this extension itself makes.
+ */
+const ORIGIN_RULE = 1;
+
+async function lookLikeTesco() {
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [ORIGIN_RULE],
+    addRules: [{
+      id: ORIGIN_RULE,
+      priority: 1,
+      condition: {
+        urlFilter: '||xapi.tesco.com',
+        initiatorDomains: [chrome.runtime.id],
+        resourceTypes: ['xmlhttprequest'],
+      },
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [
+          { header: 'origin', operation: 'set', value: 'https://www.tesco.com' },
+          { header: 'referer', operation: 'set', value: 'https://www.tesco.com/groceries/en-GB/trolley' },
+        ],
+      },
+    }],
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => { void lookLikeTesco(); });
+chrome.runtime.onStartup.addListener(() => { void lookLikeTesco(); });
+void lookLikeTesco();
+
 /* ---------- the app itself ---------- */
 
 /**
