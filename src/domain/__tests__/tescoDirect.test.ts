@@ -27,10 +27,24 @@ describe("talking to Tesco from the browser", () => {
     expect((init.headers as Record<string, string>).authorization).toBe(HEADERS.authorization);
   });
 
-  it("says so plainly when there is no signed-in Tesco tab", async () => {
-    const tesco = createTescoTransport({ headers: async () => undefined, fetch: vi.fn() as never });
+  it("asks anyway when no token has been seen, and lets Tesco answer", async () => {
+    // The browser sends Tesco's own cookies either way, and Tesco is the only
+    // thing that knows whether that is enough. Refusing to ask on our own
+    // authority guarantees the answer is never found.
+    const fetch = vi.fn(async () => reply([basketBody]));
+    const tesco = createTescoTransport({ headers: async () => undefined, fetch: fetch as never });
+
+    await expect(tesco.readBasket()).resolves.toBeDefined();
+    const [, init] = (fetch.mock.calls as unknown as Array<[string, RequestInit]>)[0];
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
+    expect(init.credentials).toBe("include");
+  });
+
+  it("says you are signed out when that is what Tesco says", async () => {
+    const fetch = vi.fn(async () => reply({}, 401));
+    const tesco = createTescoTransport({ headers: async () => undefined, fetch: fetch as never });
     await expect(tesco.readBasket()).rejects.toThrow(TescoError);
-    await expect(tesco.readBasket()).rejects.toThrow(/sign in/i);
+    await expect(tesco.readBasket()).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
   });
 
   it("reads the basket by product id, not by line id", async () => {
