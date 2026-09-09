@@ -287,7 +287,15 @@ async function main() {
   say(`Running: ${running.out || 'unknown'}`);
   say(`Checking GitHub every ${CHECK_MS / 60000} minutes.`);
 
-  await update();
+  // The update at startup is the one that caught this app out: it is also the
+  // one running the old code, so it needs the same handover as the periodic
+  // check. Doing it here, before anything has been started, costs nothing.
+  const ownAtStart = await ownHash();
+  const pulled = await update();
+  if (pulled && (await ownHash()) !== ownAtStart) {
+    say('The supervisor itself changed. Handing over to the new one.');
+    process.exit(RESTART_ME);
+  }
   // Catches the pull you did yourself in a terminal, not just ours.
   if (await needsInstall()) await install('Dependencies have changed since the last install. Installing.');
   let settleUntil = 0;
