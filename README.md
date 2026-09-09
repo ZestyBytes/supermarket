@@ -57,9 +57,8 @@ rather than offering a button that cannot work.
 powershell -ExecutionPolicy Bypass -File scripts\add-desktop-shortcut.ps1
 ```
 
-Puts **Supermarket** on the desktop. Double-click it and both halves start and the browser opens; it
-also clears a server left running from last time, which is otherwise the usual reason it will not
-start.
+Puts **Supermarket** on the desktop. Double-click it and both halves start and the browser opens.
+It then stays open and looks after the app: see below.
 
 ### Leaving it running
 
@@ -75,8 +74,11 @@ and keeps running what you have rather than pulling over the top of it. Repeated
 rather than hammering.
 
 `Start-ScheduledTask -TaskName Supermarket` runs it now, `Stop-ScheduledTask` stops it, and
-`-Remove` on the same script takes it off. To watch it work instead, double-click
-**keep-supermarket-running.cmd** and leave the window open.
+`-Remove` on the same script takes it off.
+
+The desktop shortcut does the same work while its window is open, so if you already have one there
+is nothing new to click: it looks after the app and updates it from the version you double-click
+onwards. The Scheduled Task is only for having it up before you ask.
 
 It deliberately leaves the Tesco connection alone, because the extension already handles that: open
 the Supermarket extension in Chrome and tick **Stay connected**, and it mints a fresh token every

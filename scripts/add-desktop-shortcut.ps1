@@ -7,7 +7,7 @@ $link = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Supermarket.lnk'
 $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
 $shortcut.TargetPath = $target
 $shortcut.WorkingDirectory = $repo
-$shortcut.Description = 'Start Supermarket and open it in the browser'
+$shortcut.Description = 'Start Supermarket, keep it running, and keep it up to date'
 $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
 $shortcut.Save()
 
