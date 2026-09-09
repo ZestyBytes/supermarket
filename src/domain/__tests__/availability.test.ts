@@ -50,7 +50,7 @@ describe("mealsAtRisk", () => {
       match([
         { requirement: requirement("a", "Coconut milk", [["curry", "Curry"]]), reason: "no-results", candidates: [] },
         { requirement: requirement("b", "Coriander", [["curry", "Curry"]]), reason: "no-results", candidates: [] },
-        { requirement: requirement("c", "Sausages", [["mash", "Sausages & Mash"]]), reason: "wrong-unit", candidates: [] },
+        { requirement: requirement("c", "Sausages", [["mash", "Sausages & Mash"]]), reason: "search-failed", candidates: [] },
       ]),
     );
     expect(risks[0].recipeName).toBe("Curry");

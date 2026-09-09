@@ -43,10 +43,6 @@ export function reasonText(reason: LiveReview["reason"]): string {
   switch (reason) {
     case "no-results":
       return "Tesco has nothing matching";
-    case "unreadable-size":
-      return "pack size unclear";
-    case "wrong-unit":
-      return "sold by a different measure";
     case "search-failed":
       return "the search did not complete";
   }

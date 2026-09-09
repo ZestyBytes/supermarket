@@ -51,18 +51,22 @@ describe("chooseLiveProducts", () => {
     expect(choices[0].cost).toBeLessThanOrEqual(6.69 * 2);
   });
 
-  it("sends a product with an unreadable size to review instead of buying one", () => {
+  // These two used to go to review. Being exact meant coming home without the
+  // ingredient, which is worse than buying one pack and saying it is a guess.
+  it("buys one when the title does not say a size", () => {
     const results = new Map([["chicken-breast", [{ id: "x", title: "Chicken Selection", price: 3 }]]]);
     const { choices, review } = chooseLiveProducts(results, [need(chicken, 600)]);
-    expect(choices).toHaveLength(0);
-    expect(review[0].reason).toBe("unreadable-size");
+    expect(review).toHaveLength(0);
+    expect(choices[0].packs).toBe(1);
+    expect(choices[0].assumed).toBe("size");
   });
 
-  it("refuses to count grams against something sold by the item", () => {
+  it("buys one when the size is in a different measure than the recipe", () => {
     const results = new Map([["onion", [{ id: "o", title: "Brown Onions 1Kg", price: 1.45 }]]]);
     const { choices, review } = chooseLiveProducts(results, [need(onion, 6)]);
-    expect(choices).toHaveLength(0);
-    expect(review[0].reason).toBe("wrong-unit");
+    expect(review).toHaveLength(0);
+    expect(choices[0].packs).toBe(1);
+    expect(choices[0].assumed).toBe("unit");
   });
 
   it("reports an empty search rather than skipping the ingredient", () => {
@@ -93,5 +97,66 @@ describe("submissionFingerprint", () => {
     const a = [{ product: { id: "a" }, packs: 1 }];
     const b = [{ product: { id: "a" }, packs: 2 }];
     expect(submissionFingerprint(a as never)).not.toBe(submissionFingerprint(b as never));
+  });
+});
+
+describe("when the pack size cannot be measured", () => {
+  const requirement = (id: string, name: string, unit: "g" | "each", qty: number) => ({
+    ingredient: { id, name, unit, aisle: "produce" as const },
+    qty,
+    unit,
+    sources: [],
+  });
+
+  it("buys one anyway rather than leaving the ingredient out", () => {
+    const results = new Map([
+      ["pepper", [{ id: "p1", title: "Tesco Mixed Peppers", price: 1.5 }]],
+    ]);
+    const match = chooseLiveProducts(results, [requirement("pepper", "Peppers", "g", 300)]);
+
+    expect(match.review).toEqual([]);
+    expect(match.choices).toHaveLength(1);
+    expect(match.choices[0].packs).toBe(1);
+    expect(match.choices[0].assumed).toBe("size");
+  });
+
+  it("buys one when the size is written in a different measure than the recipe", () => {
+    const results = new Map([
+      ["pepper", [{ id: "p1", title: "Tesco Peppers 3 Pack", price: 1.5 }]],
+    ]);
+    const match = chooseLiveProducts(results, [requirement("pepper", "Peppers", "g", 300)]);
+
+    expect(match.review).toEqual([]);
+    expect(match.choices[0].assumed).toBe("unit");
+    expect(match.choices[0].packs).toBe(1);
+  });
+
+  it("takes the cheapest of the unmeasurable ones, and keeps the rest as alternatives", () => {
+    const results = new Map([
+      ["pepper", [
+        { id: "dear", title: "Finest Peppers", price: 3 },
+        { id: "cheap", title: "Tesco Peppers", price: 1.2 },
+      ]],
+    ]);
+    const match = chooseLiveProducts(results, [requirement("pepper", "Peppers", "g", 300)]);
+
+    expect(match.choices[0].product.id).toBe("cheap");
+    expect(match.choices[0].alternatives.map((p) => p.id)).toEqual(["dear"]);
+  });
+
+  it("still does the maths properly when the size is readable", () => {
+    const results = new Map([
+      ["mince", [{ id: "m", title: "Tesco Beef Mince 500G", price: 4 }]],
+    ]);
+    const match = chooseLiveProducts(results, [requirement("mince", "Beef mince", "g", 1000)]);
+
+    expect(match.choices[0].packs).toBe(2);
+    expect(match.choices[0].assumed).toBeUndefined();
+  });
+
+  it("only calls an ingredient unavailable when Tesco returns nothing", () => {
+    const match = chooseLiveProducts(new Map(), [requirement("saffron", "Saffron", "g", 1)]);
+    expect(match.choices).toEqual([]);
+    expect(match.review[0].reason).toBe("no-results");
   });
 });

@@ -59,6 +59,14 @@ export function LivePanel({ requirements }: Props) {
     refreshSession();
   }, []);
 
+  // Start matching as soon as we know the connection works. By the time you
+  // have read the connection line the products are usually already there, so
+  // this screen is a confirmation rather than a second search.
+  useEffect(() => {
+    if (conn.state === "live" && stage === "idle" && requirements.length > 0) findProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conn.state]);
+
   async function refreshSession() {
     try {
       const state = await getSession();

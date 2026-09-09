@@ -19,12 +19,22 @@ export interface LiveChoice {
   cost: number;
   surplus: number;
   alternatives: RetailerProduct[];
+  /**
+   * Set when the pack maths could not be done exactly and one pack was taken
+   * as enough — the title did not say a size, or said it in a different
+   * measure than the recipe. Worth showing quietly; not worth refusing over.
+   */
+  assumed?: "size" | "unit";
 }
 
 export interface LiveReview {
   requirement: Requirement;
-  /** Why this could not be decided automatically. */
-  reason: "no-results" | "unreadable-size" | "wrong-unit" | "search-failed";
+  /**
+   * Why nothing could be chosen. Both remaining reasons mean Tesco returned
+   * nothing usable — a pack we cannot measure is still a pack we can buy, so
+   * that is no longer a reason to leave an ingredient out.
+   */
+  reason: "no-results" | "search-failed";
   candidates: RetailerProduct[];
 }
 
@@ -34,12 +44,16 @@ export interface LiveMatch {
 }
 
 /**
- * Turn live search results into a decision, or into a question.
+ * Turn live search results into a decision.
  *
- * A retailer writes the pack size into the product title and nowhere else, so
- * a title we cannot parse means we do not know how much food a pack holds.
- * That line goes to review rather than being assumed to be enough — buying one
- * pack of an unknown size is how a week's plan quietly comes up short.
+ * Where the pack size is written in the title we can do the maths properly and
+ * buy exactly enough. Where it is not — or where it is written in a different
+ * measure than the recipe — we take one pack and say so.
+ *
+ * Refusing those was the wrong call. "Peppers, sold by a different measure" is
+ * not a shop that cannot be done; it is a pepper. Leaving it out to be exact
+ * meant coming home without it, which is the failure that actually matters.
+ * The only thing that still counts as unavailable is Tesco having nothing.
  */
 export function chooseLiveProducts(
   results: Map<string, RetailerProduct[]>,
@@ -79,11 +93,21 @@ export function chooseLiveProducts(
       .sort((a, b) => a.cost - b.cost || a.surplus - b.surplus);
 
     if (costed.length === 0) {
-      const anyUnreadable = candidates.some((product) => !parsePackSize(product.title));
-      review.push({
+      // Nothing we could measure — buy the cheapest sensible one and move on.
+      const relevant = candidates.filter((product) => relevantProduct(requirement.ingredient.id, product.title));
+      const usable = (relevant.length > 0 ? relevant : candidates).slice().sort((a, b) => a.price - b.price);
+      const [pick, ...others] = usable;
+      const readable = parsePackSize(pick.size ? `${pick.title} ${pick.size}` : pick.title);
+
+      choices.push({
         requirement,
-        reason: anyUnreadable ? "unreadable-size" : "wrong-unit",
-        candidates,
+        product: pick,
+        packQty: readable?.qty ?? requirement.qty,
+        packs: 1,
+        cost: Math.round(pick.price * 100) / 100,
+        surplus: 0,
+        alternatives: others,
+        assumed: readable ? "unit" : "size",
       });
       continue;
     }

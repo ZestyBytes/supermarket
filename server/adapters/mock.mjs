@@ -25,6 +25,29 @@ const SHELF = [
 
 const DELIVERY = 5.0;
 
+/**
+ * Products for anything not on the fixed shelf, made up from the search term.
+ *
+ * Deterministic, so the same ingredient costs the same on every run and a test
+ * can rely on it; priced from the name only, which is obviously not real and
+ * is not meant to be.
+ */
+function stand(query) {
+  const name = query.replace(/\b\w/g, (c) => c.toUpperCase());
+  const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const pence = 80 + (hash(slug) % 420);
+  return [
+    { id: `mock-${slug}-small`, title: `Tesco ${name} 300G`, price: round(pence / 100) },
+    { id: `mock-${slug}-large`, title: `Tesco ${name} 700G`, price: round((pence * 1.9) / 100) },
+  ];
+}
+
+function hash(value) {
+  let total = 0;
+  for (const character of value) total = (total * 31 + character.charCodeAt(0)) % 100000;
+  return total;
+}
+
 export function createMockAdapter({ failEvery = 0 } = {}) {
   const basket = new Map();
   let calls = 0;
@@ -36,6 +59,15 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
     }
   }
 
+  /** A shelf item, or one of the made-up ones, recovered from its id. */
+  function find(productId) {
+    const shelved = SHELF.find((item) => item.id === productId);
+    if (shelved) return shelved;
+    const match = /^mock-(.+)-(small|large)$/.exec(productId);
+    if (!match) return undefined;
+    return stand(match[1].replace(/-/g, " ")).find((item) => item.id === productId);
+  }
+
   return {
     id: "mock",
     live: false,
@@ -43,7 +75,15 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
     async search(query, limit = 10) {
       maybeFail();
       const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-      return SHELF.filter((item) => words.some((word) => item.title.toLowerCase().includes(word))).slice(0, limit);
+      const known = SHELF.filter((item) => words.some((word) => item.title.toLowerCase().includes(word)));
+      if (known.length > 0) return known.slice(0, limit);
+
+      // A real shop stocks almost everything you can name, and the fixed shelf
+      // above only covers a dozen ingredients. Answering "nothing found" for
+      // the rest made every meal look unavailable, which is a wrong impression
+      // of both the shop and the app. Two sizes, so the pack maths still has
+      // something to choose between.
+      return stand(query).slice(0, limit);
     },
 
     async readBasket() {
@@ -58,7 +98,7 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
 
     async addToBasket(productId, qty) {
       maybeFail();
-      const product = SHELF.find((item) => item.id === productId);
+      const product = find(productId);
       if (!product) throw retailerError("RETAILER_ERROR", `Unknown product ${productId}`, { status: 404 });
       const existing = basket.get(productId);
       basket.set(productId, { ...product, qty: (existing?.qty ?? 0) + qty });
@@ -66,7 +106,7 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
     },
     async setQuantity(productId, qty) {
       maybeFail();
-      const product = SHELF.find(item => item.id === productId);
+      const product = find(productId);
       if (!product) throw retailerError('BAD_REQUEST', 'Unknown mock product.');
       basket.set(productId, { ...product, qty });
     },

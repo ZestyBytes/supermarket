@@ -6,7 +6,8 @@ import { RECIPES } from "./data/recipes";
 import type { PlannedMeal } from "./domain/types";
 import { usePersistentState } from "./ui/usePersistentState";
 import { WeekBar } from "./ui/WeekBar";
-import { MealList } from "./ui/MealList";
+import { MealDeck } from "./ui/MealDeck";
+import { useStock } from "./ui/useStock";
 import { HaveList } from "./ui/HaveList";
 import { LivePanel } from "./ui/LivePanel";
 import { Icon } from "./ui/Icon";
@@ -22,6 +23,10 @@ export function App() {
   const [servings, setServings] = usePersistentState<number>("supermarket.servings", 4);
   const [wanted, setWanted] = usePersistentState<number>("supermarket.wanted", 5);
   const [tab, setTab] = useState<Tab>("meals");
+
+  // Asked in the background while you browse, so choosing a dinner and knowing
+  // whether it can be bought are the same moment.
+  const { stock } = useStock(RECIPES, INGREDIENTS);
 
   const pantry = useMemo(() => new Set(pantryIds), [pantryIds]);
   const requirements = useMemo(() => consolidate(plan, CATALOGUE), [plan]);
@@ -73,12 +78,13 @@ export function App() {
               onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
             />
 
-            <MealList
+            <MealDeck
               recipes={RECIPES}
               plan={plan}
               ingredients={INGREDIENTS}
               onAdd={addMeal}
               onRemove={removeRecipe}
+              stock={stock}
             />
 
             <div className="act">
