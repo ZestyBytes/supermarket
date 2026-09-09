@@ -103,7 +103,14 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
                     {have.missing.length} missing
                   </span>
                 )}
-                <span className="photo-name">{recipe.name}</span>
+                <span className="photo-name">
+                  {recipe.name}
+                  {bought !== 'none' && (
+                    <span className={`photo-state photo-state--${bought}`}>
+                      {bought === 'in' ? 'In your basket' : bought === 'short' ? 'In, apart from what Tesco had none of' : 'Going in'}
+                    </span>
+                  )}
+                </span>
               </button>
 
               <button

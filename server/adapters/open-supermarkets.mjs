@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { z } from 'zod';
 import { loadSession } from '../session.mjs';
 import { refreshBrowserSession } from '../browser-refresh.mjs';
+import { createMemorySearchStore } from '../searchStore.mjs';
 const require = createRequire(import.meta.url);
 const { TescoProvider } = require('open-supermarkets/dist/providers/tesco/index.js');
 const { batchSearch } = require('open-supermarkets/dist/batch.js');
@@ -17,8 +18,7 @@ export function classify(error) {
 const productSchema = z.object({ product_uid: z.string().min(1), name: z.string().min(1), retail_price: z.object({ price: z.number().nonnegative() }), in_stock: z.boolean(), size: z.string().optional() });
 const basketSchema = z.object({ items: z.array(z.object({ product_uid: z.string().min(1), name: z.string(), quantity: z.number().int().positive(), unit_price: z.number().nonnegative() })), total_cost: z.number().nonnegative() });
 
-export function createOpenSupermarketsAdapter({ getSession = loadSession, createProvider = session => new TescoProvider(session) } = {}) {
-  const searchCache = new Map();
+export function createOpenSupermarketsAdapter({ getSession = loadSession, createProvider = session => new TescoProvider(session), searchCache = createMemorySearchStore() } = {}) {
   function provider() {
     const session = getSession();
     if (!session?.cookie) throw retailerError('SESSION_MISSING', 'Connect Tesco first with npm run connect. No DevTools setup is needed.');
@@ -50,8 +50,8 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
         for (let i = 0; i < queries.length; i += 4) {
           const resilient = { search: async (query, options) => {
             const key = `${query.toLowerCase()}|${options.limit}`;
-            const cached = searchCache.get(key);
-            if (cached && cached.until > Date.now()) return cached.products;
+            const cached = await searchCache.get(key);
+            if (cached) return cached;
             const collected = new Map();
             for (let attempt = 0; ; attempt++) {
               try {
@@ -65,7 +65,7 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
                   continue;
                 }
                 const complete = [...collected.values()];
-                if (complete.length > 0) searchCache.set(key, { products: complete, until: Date.now() + 300000 });
+                if (complete.length > 0) await searchCache.set(key, complete);
                 return complete;
               } catch (error) {
                 if (attempt >= 2 || classify(error).code === 'SESSION_EXPIRED') throw error;

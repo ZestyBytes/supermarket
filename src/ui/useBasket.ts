@@ -352,7 +352,7 @@ export function useBasket(requirements: Requirement[]): BasketState {
     const choice = match?.choices.find((c) => c.requirement.ingredient.id === id);
     const missing = match?.review.some((r) => r.requirement.ingredient.id === id);
 
-    if (missing) return { ingredientId: id, state: "missing",why:match?.review.find(r=>r.requirement.ingredient.id===id)?.reason==='search-failed'?'Search did not finish. Check the Tesco connection.':'No suitable match found at Tesco'};
+    if (missing) return { ingredientId: id, state: "missing",why:match?.review.find(r=>r.requirement.ingredient.id===id)?.reason==='search-failed'?'Tesco did not answer when we looked. Press the button again to retry it.':'We could not find this at Tesco. Pick it up yourself.'};
     if (!choice) return { ingredientId: id, state: "checking" };
 
     const inBasket = held.get(choice.product.id) ?? 0;

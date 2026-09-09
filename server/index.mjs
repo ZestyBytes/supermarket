@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createOpenSupermarketsAdapter, retailerError } from "./adapters/open-supermarkets.mjs";
 import { createMockAdapter } from "./adapters/mock.mjs";
 import { createQueue } from "./queue.mjs";
+import { createSearchStore } from "./searchStore.mjs";
 import { describeSession, forgetSession, loadSession } from "./session.mjs";
 import { releaseStaleLock, removeFromBasket, removalSchema, submitBasket, submissionSchema } from "./basket.mjs";
 import { startConnectionReceiver } from "./connect.mjs";
@@ -13,7 +14,7 @@ const PORT = Number(process.env.PORT ?? 8787);
 const MOCK = process.argv.includes("--mock") || process.env.RETAILER === "mock";
 const attemptsDirectory = MOCK ? join(homedir(), '.supermarket', 'mock-attempts') : undefined;
 const queue = createQueue({ minIntervalMs: 350, retries: 1 });
-const client = MOCK ? createMockAdapter() : createOpenSupermarketsAdapter();
+const client = MOCK ? createMockAdapter() : createOpenSupermarketsAdapter({ searchCache: createSearchStore() });
 // retailer.config.json and captured request bodies are deliberately never loaded.
 const routes = {
   "GET /api/health": async () => ({ ok: true, mode: MOCK ? "mock" : "live", integration: "open-supermarkets" }),
