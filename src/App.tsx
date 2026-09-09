@@ -5,8 +5,8 @@ import { INGREDIENTS } from "./data/ingredients";
 import { RECIPES } from "./data/recipes";
 import type { PlannedMeal } from "./domain/types";
 import { usePersistentState } from "./ui/usePersistentState";
+import { WeekBar } from "./ui/WeekBar";
 import { MealList } from "./ui/MealList";
-import { WeekCard } from "./ui/WeekCard";
 import { HaveList } from "./ui/HaveList";
 import { LivePanel } from "./ui/LivePanel";
 import { Icon } from "./ui/Icon";
@@ -36,14 +36,11 @@ export function App() {
     setPlan((current) => current.filter((meal) => meal.recipeId !== recipeId));
   }
 
-  // Changing who you are cooking for re-scales the week you already picked,
-  // rather than being a number that only applies to the next thing you add.
   function setServingsEverywhere(next: number) {
     setServings(next);
     setPlan((current) => current.map((meal) => ({ ...meal, servings: next })));
   }
 
-  // Filling the week tops up what you have rather than replacing your choices.
   function surprise() {
     const already = new Set(plan.map((m) => m.recipeId));
     const short = wanted - plan.length;
@@ -59,22 +56,21 @@ export function App() {
     setPlan((current) => [...current, ...extra]);
   }
 
-      <main className="sheet">
-        {tab === 'list' && <div className="fresh-heading"><h1>Here’s what you’ll need.</h1><p>A single list for all your dinners.</p></div>}
-        {tab === 'shop' && <div className="fresh-heading"><h1>Your Tesco shop.</h1><p>Review your products before adding them.</p></div>}
-        {tab === "meals" && (
-          <>
+  return (
+    <div>
+      {tab === "meals" && (
+        <>
+          <main className="sheet">
             <WeekBar
               plan={plan}
               recipes={RECIPES}
               servings={servings}
-
               wanted={wanted}
-              servings={servings}
               onWanted={setWanted}
               onServings={setServingsEverywhere}
               onSurprise={surprise}
               onClear={() => setPlan([])}
+              onRemove={(key) => setPlan((current) => current.filter((meal) => meal.key !== key))}
             />
 
             <MealList
@@ -129,19 +125,40 @@ export function App() {
       )}
 
       {tab === "shop" && (
-        <LivePanel
-          key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])}
-          requirements={toBuy}
-        />
+        <>
+          <div className="fresh-heading">
+            <h1>Your Tesco shop.</h1>
+            <p>Review your products before adding them.</p>
+          </div>
+          <LivePanel
+            key={JSON.stringify([toBuy.map((r) => r.ingredient.id), toBuy.map((r) => r.qty)])}
+            requirements={toBuy}
+          />
+        </>
       )}
 
       <div className="pad" />
 
-      {tab !== 'shop' && <div className="fresh-next"><button disabled={plan.length===0} onClick={()=>setTab(tab==='meals'?'list':'shop')}><span><strong>{tab==='meals'?'Review ingredients':'Review Tesco products'}</strong><small>{tab==='meals'?`${plan.length} dinners selected`:`${toBuy.length} ingredients to buy`}</small></span><Icon name="arrow"/></button></div>}
+      {tab !== "shop" && (
+        <div className="fresh-next">
+          <button
+            type="button"
+            disabled={plan.length === 0}
+            onClick={() => setTab(tab === "meals" ? "list" : "shop")}
+          >
+            <span>
+              <strong>{tab === "meals" ? "Review ingredients" : "Review Tesco products"}</strong>
+              <small>{tab === "meals" ? `${plan.length} dinners selected` : `${toBuy.length} ingredients to buy`}</small>
+            </span>
+            <Icon name="arrow" />
+          </button>
+        </div>
+      )}
+
       <nav className="tabs" aria-label="Sections">
-        <Tab id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
-        <Tab id="list" now={tab} go={setTab} icon="list" label="Ingredients" />
-        <Tab id="shop" now={tab} go={setTab} icon="shop" label="Tesco" />
+        <TabButton id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
+        <TabButton id="list" now={tab} go={setTab} icon="list" label="Ingredients" />
+        <TabButton id="shop" now={tab} go={setTab} icon="shop" label="Tesco" />
       </nav>
     </div>
   );
@@ -151,6 +168,7 @@ function TabButton({
   id,
   now,
   go,
+  icon,
   label,
   note,
   children,
@@ -158,16 +176,21 @@ function TabButton({
   id: Tab;
   now: Tab;
   go: (tab: Tab) => void;
+  icon: "meals" | "list" | "shop";
   label: string;
   note?: number;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
-      {children ?? <span className="tab__icon" aria-hidden="true"><Icon name={icon} /></span>}
+      {children ?? (
+        <span className="tab__icon" aria-hidden="true">
+          <Icon name={icon} />
+        </span>
+      )}
       <span className="tab__label">{label}</span>
-      {note != null && <span className="tab__note">{note}</span>}
       {note != null && <span className="tab__note">{note}</span>}
     </button>
   );
 }
+
