@@ -18,13 +18,17 @@ import { Gate } from "./ui/Gate";
 import { Icon } from "./ui/Icon";
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
-const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
 
 type Tab = "meals" | "list" | "settings";
 
 export function App() {
   const [plan, setPlan] = usePersistentState<PlannedMeal[]>("supermarket.plan", []);
-  const [pantryIds, setPantryIds] = usePersistentState<string[]>("supermarket.pantry", DEFAULT_PANTRY);
+  // Nothing is ticked to start with. Deciding on someone's behalf that they
+  // already own garlic, flour and stock cubes meant a list quietly missing
+  // eleven things they might well need, and a tick they never made is worse
+  // than a line they can tick in a second. The key changed with the default,
+  // because the old one is already saved in browsers with the guesses in it.
+  const [pantryIds, setPantryIds] = usePersistentState<string[]>("supermarket.cupboard", []);
   const [servings, setServings] = usePersistentState<number>("supermarket.servings", 4);
   const [wanted, setWanted] = usePersistentState<number>("supermarket.wanted", 5);
   const [tab, setTab] = useState<Tab>("meals");
