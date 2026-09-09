@@ -9,6 +9,7 @@ import { MealDeck } from "./ui/MealDeck";
 import { WeekBar } from "./ui/WeekBar";
 import { HaveList } from "./ui/HaveList";
 import { LivePanel } from "./ui/LivePanel";
+import { Icon } from './ui/Icon';
 
 const CATALOGUE = { ingredients: INGREDIENTS, recipes: RECIPES };
 const DEFAULT_PANTRY = INGREDIENTS.filter((i) => i.staple).map((i) => i.id);
@@ -57,6 +58,8 @@ export function App() {
       </header>
 
       <main className="sheet">
+        {tab === 'list' && <div className="fresh-heading"><h1>Here’s what you’ll need.</h1><p>A single list for all your dinners.</p></div>}
+        {tab === 'shop' && <div className="fresh-heading"><h1>Your Tesco shop.</h1><p>Review your products before adding them.</p></div>}
         {tab === "meals" && (
           <>
             <WeekBar
@@ -95,10 +98,11 @@ export function App() {
         )}
       </main>
 
+      {tab !== 'shop' && <div className="fresh-next"><button disabled={plan.length===0} onClick={()=>setTab(tab==='meals'?'list':'shop')}><span><strong>{tab==='meals'?'Review ingredients':'Review Tesco products'}</strong><small>{tab==='meals'?`${plan.length} dinners selected`:`${toBuy.length} ingredients to buy`}</small></span><Icon name="arrow"/></button></div>}
       <nav className="tabs" aria-label="Sections">
-        <Tab id="meals" now={tab} go={setTab} icon="🍽️" label="Meals" note={plan.length || undefined} />
-        <Tab id="list" now={tab} go={setTab} icon="📝" label="List" note={toBuy.length || undefined} />
-        <Tab id="shop" now={tab} go={setTab} icon="🛒" label="Tesco" />
+        <Tab id="meals" now={tab} go={setTab} icon="meals" label="Meals" />
+        <Tab id="list" now={tab} go={setTab} icon="list" label="Ingredients" />
+        <Tab id="shop" now={tab} go={setTab} icon="shop" label="Tesco" />
       </nav>
     </>
   );
@@ -122,7 +126,7 @@ function Tab({
   return (
     <button className="tab" type="button" aria-current={now === id ? "page" : undefined} onClick={() => go(id)}>
       <span className="tab__icon" aria-hidden="true">
-        {icon}
+        <Icon name={icon}/>
       </span>
       <span className="tab__label">{label}</span>
       {note != null && <span className="tab__note">{note}</span>}
