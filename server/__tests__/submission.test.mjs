@@ -207,4 +207,28 @@ describe('verified basket submission', () => {
     // The fresh one stays: it is what stops an attempt being replayed.
     expect(left.filter((f) => f.endsWith('.json'))).toHaveLength(1);
   });
+
+  // The read before writing waited out a throttle; the read after it did not.
+  // So a shop that had very likely worked reported "the update could not be
+  // verified", which is alarming, and wrong, and about the check rather than
+  // the shop.
+  it('waits out a throttle on the check, rather than failing a shop that worked', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const held = new Map();
+    let reads = 0;
+    const client = {
+      readBasket: async () => {
+        reads += 1;
+        // The first read is the pre-flight; the ones after it are the check.
+        if (reads > 1 && reads < 4) throw Object.assign(new Error('slow'), { code: 'RATE_LIMITED' });
+        return { total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) };
+      },
+      setQuantity: async (id, qty) => { held.set(id, qty); },
+    };
+
+    const result = await submitBasket(client, { attemptId: randomUUID(), items: [{ productId: 'a', qty: 2 }] }, dir, async () => {});
+
+    expect(result.verified).toBe(true);
+    expect(held.get('a')).toBe(2);
+  });
 });

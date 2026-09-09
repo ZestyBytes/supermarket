@@ -217,8 +217,8 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
     // Retrying is safe here in a way it usually is not: Tesco's add sets an
     // ABSOLUTE quantity, so writing "3" twice leaves 3, not 6.
     const reasons = await eachLine(targets, item => client.setQuantity(item.productId, item.qty), sleep);
-    const basket = await client.readBasket().catch(() => null);
-    if (!basket) throw retailerError('BASKET_UNCERTAIN', 'The update could not be verified. Check Tesco; this attempt will not be repeated.');
+    const basket = await patiently(() => client.readBasket(), sleep).catch(() => null);
+    if (!basket) throw retailerError('BASKET_UNCERTAIN', 'Tesco did not answer when we checked. Your basket may already have these; it will be checked again shortly.');
     const added = targets.filter(t => basket.items.find(i => i.id === t.productId)?.qty === t.qty);
     const failed = targets.filter(t => !added.includes(t)).map(t => ({
       ...t,
@@ -265,8 +265,8 @@ export async function removeFromBasket(client, input, directory = join(homedir()
 
     const reasons = await eachLine(targets, item => client.removeItem(item.productId), sleep);
 
-    const basket = await client.readBasket().catch(() => null);
-    if (!basket) throw retailerError('BASKET_UNCERTAIN', 'The removal could not be verified. Check Tesco; this attempt will not be repeated.');
+    const basket = await patiently(() => client.readBasket(), sleep).catch(() => null);
+    if (!basket) throw retailerError('BASKET_UNCERTAIN', 'Tesco did not answer when we checked. It will be checked again shortly.');
 
     const still = new Set(basket.items.map(item => item.id));
     const removed = targets.filter(t => !still.has(t.productId));

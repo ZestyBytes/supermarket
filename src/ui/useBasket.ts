@@ -327,7 +327,13 @@ export function useBasket(requirements: Requirement[]): BasketState {
       if (latest) setBasket(latest);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
-      // Ask to be run again. Most of what goes wrong here is a moment's
+      // Find out what actually happened before trying again. A write that
+      // failed to be verified very often worked, and carrying on with a stale
+      // idea of the basket means both showing the wrong thing and working out
+      // the wrong difference to send next time. The basket is the truth, so go
+      // and read it.
+      await readBasket().then(setBasket).catch(() => {});
+      // Then ask to be run again. Most of what goes wrong here is a moment's
       // contention or a throttle, and the person did not ask for any of it, so
       // it should not be their job to notice and press something.
       setAttemptNo((n) => n + 1);
