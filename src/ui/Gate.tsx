@@ -2,6 +2,7 @@ import type { BasketState } from "./useBasket";
 import { useEffect, useState } from "react";
 import { talkingDirect } from "../domain/retailerClient";
 import { whatItSaw } from "../domain/extension";
+import { lastTescoAnswer } from "../domain/tescoDirect";
 import { Icon } from "./Icon";
 
 /**
@@ -45,7 +46,10 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
 
         {direct && !offline && (
           <dl className="gate__saw">
-            {Object.entries(saw ?? { requests: "none seen yet" }).map(([what, value]) => (
+            {Object.entries({
+              ...(saw ?? { requests: "none seen yet" }),
+              ...(lastTescoAnswer() ? { answer: lastTescoAnswer() } : {}),
+            }).map(([what, value]) => (
               <div key={what}>
                 <dt>{plainly(what)}</dt>
                 <dd>{String(value)}</dd>
@@ -89,6 +93,8 @@ function useSaw(wanted: boolean): Record<string, string> | undefined {
 }
 
 const WORDS: Record<string, string> = {
+  answer: "Tesco replied",
+  hosts: "Tesco pages called",
   requests: "Seen a Tesco request",
   sawHeaders: "Headers on it",
   token: "Sign-in token",

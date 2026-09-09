@@ -8,6 +8,8 @@
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   const message = event.data;
-  if (message?.source !== 'supermarket-tesco' || !message.headers?.authorization) return;
-  chrome.runtime.sendMessage({ type: 'tesco-headers-seen', headers: message.headers }).catch(() => {});
+  if (message?.source !== 'supermarket-tesco') return;
+  chrome.runtime
+    .sendMessage({ type: 'tesco-headers-seen', host: message.host, headers: message.headers || {} })
+    .catch(() => {});
 });

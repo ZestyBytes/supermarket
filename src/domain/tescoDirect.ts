@@ -36,6 +36,18 @@ export class TescoError extends Error {
  * around the site, and the app never sees them. The only things that must be
  * borrowed are the two headers a Tesco page adds and a cookie jar does not.
  */
+/**
+ * The last thing Tesco actually said, for the panel to report.
+ *
+ * A gate that says "you are not signed in" is our conclusion, not Tesco's
+ * words. When the conclusion is visibly wrong the words are the only way
+ * forward, so they are kept: a status and a short reason, never a token.
+ */
+let lastAnswer = "";
+export function lastTescoAnswer(): string {
+  return lastAnswer;
+}
+
 export function createTescoTransport({
   headers,
   fetch: doFetch = globalThis.fetch,
@@ -53,7 +65,9 @@ export function createTescoTransport({
     // with an answer; refusing to ask guarantees the answer is never found.
     const borrowed = await headers();
 
-    const response = await doFetch(XAPI, {
+    let response: Response;
+    try {
+      response = await doFetch(XAPI, {
       method: "POST",
       // The browser's own Tesco cookies. Nothing is copied, kept, or written
       // down anywhere by this app.
@@ -65,7 +79,15 @@ export function createTescoTransport({
         ...(borrowed?.["customer-uuid"] ? { "customer-uuid": borrowed["customer-uuid"] } : {}),
       },
       body: JSON.stringify(operations),
-    });
+      });
+    } catch (error) {
+      // A blocked or refused request never gets a status, and "not signed in"
+      // is the wrong thing to conclude from one.
+      lastAnswer = `the request itself failed: ${(error as Error).message.slice(0, 90)}`;
+      throw new TescoError("OFFLINE", "The request to Tesco did not get through.");
+    }
+
+    lastAnswer = `${response.status} ${response.statusText}${borrowed?.authorization ? ", with a token" : ", no token"}`;
 
     if (response.status === 401 || response.status === 403) {
       throw new TescoError("SESSION_EXPIRED", "Tesco needs you to sign in again. Open a Tesco tab, then try again.");
@@ -77,8 +99,15 @@ export function createTescoTransport({
       throw new TescoError("RETAILER_ERROR", `Tesco answered with ${response.status}.`);
     }
 
-    const body = await response.json();
-    return Array.isArray(body) ? body : [body];
+    const body = await response.json().catch(() => null);
+    if (body === null) {
+      lastAnswer = `${response.status}, but the answer was not JSON`;
+      throw new TescoError("RETAILER_ERROR", "Tesco answered with something we could not read.");
+    }
+    const answers = Array.isArray(body) ? body : [body];
+    const complaint = answers.flatMap((a) => (a as { errors?: Array<{ message?: string }> })?.errors ?? [])[0]?.message;
+    if (complaint) lastAnswer = `${response.status}, and Tesco said: ${complaint.slice(0, 90)}`;
+    return answers;
   }
 
   async function basketId(): Promise<string> {

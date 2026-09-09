@@ -13,16 +13,24 @@
  * own API.
  */
 (() => {
-  const MINE = /^https:\/\/xapi\.tesco\.com/i;
+  // Any Tesco host, not just xapi. Watching one host assumed I knew which one
+  // carries the token, and "none seen yet" on a page plainly talking to Tesco
+  // is what that assumption looks like from outside.
+  const MINE = /^https:\/\/[a-z0-9.-]*tesco\.com/i;
   const WANTED = ['authorization', 'x-apikey', 'customer-uuid'];
 
-  function offer(headers) {
+  function offer(url, headers) {
     const found = {};
     for (const [name, value] of Object.entries(headers)) {
       const key = String(name).toLowerCase();
       if (WANTED.includes(key) && typeof value === 'string') found[key] = value;
     }
-    if (found.authorization) window.postMessage({ source: 'supermarket-tesco', headers: found }, '*');
+    // Report the host either way. Knowing Tesco's page called somewhere and
+    // put nothing we recognise on it is the answer to a different question
+    // than never having seen it call anything.
+    let host = '';
+    try { host = new URL(String(url), location.href).host; } catch { host = 'unreadable'; }
+    window.postMessage({ source: 'supermarket-tesco', host, headers: found }, '*');
   }
 
   const realFetch = window.fetch;
@@ -36,7 +44,7 @@
         if (given instanceof Headers) given.forEach((v, k) => { headers[k] = v; });
         else if (Array.isArray(given)) for (const [k, v] of given) headers[k] = v;
         else if (given) Object.assign(headers, given);
-        offer(headers);
+        offer(url, headers);
       }
     } catch {
       // Watching must never be able to break the page it is watching.
@@ -48,6 +56,7 @@
   const setHeader = XMLHttpRequest.prototype.setRequestHeader;
   XMLHttpRequest.prototype.open = function (method, url) {
     this.__supermarketTesco = MINE.test(String(url));
+    this.__supermarketUrl = url;
     this.__supermarketHeaders = {};
     return open.apply(this, arguments);
   };
@@ -55,7 +64,7 @@
     try {
       if (this.__supermarketTesco) {
         this.__supermarketHeaders[String(name).toLowerCase()] = value;
-        offer(this.__supermarketHeaders);
+        offer(this.__supermarketUrl, this.__supermarketHeaders);
       }
     } catch {
       // As above.

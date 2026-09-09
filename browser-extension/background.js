@@ -38,11 +38,18 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // sleeping background worker misses.
   if (message?.type === 'tesco-headers-seen') {
     const headers = message.headers || {};
-    if (/^Bearer\s+/i.test(headers.authorization || '')) {
-      chrome.storage.session.set({ tescoHeaders: headers }).then(() =>
-        note({ requests: 'yes, from the Tesco page', sawHeaders: Object.keys(headers).join(', '), token: 'captured' }),
-      );
-    }
+    const known = Object.keys(headers);
+    (async () => {
+      const { tescoHosts = [] } = await chrome.storage.session.get('tescoHosts');
+      const hosts = [...new Set([...tescoHosts, message.host].filter(Boolean))].slice(0, 8);
+      await chrome.storage.session.set({ tescoHosts: hosts });
+      if (/^Bearer\s+/i.test(headers.authorization || '')) {
+        await chrome.storage.session.set({ tescoHeaders: headers });
+        await note({ requests: 'yes, from the Tesco page', hosts: hosts.join(', '), sawHeaders: known.join(', '), token: 'captured' });
+      } else {
+        await note({ requests: 'yes, from the Tesco page', hosts: hosts.join(', '), sawHeaders: known.join(', ') || 'none we look for', token: 'not on those requests yet' });
+      }
+    })();
     return;
   }
 
