@@ -3,6 +3,12 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { z } from 'zod';
 import { retailerError } from './adapters/open-supermarkets.mjs';
+export const removalSchema = z.object({
+  attemptId: z.string().uuid(),
+  // Absent means everything currently in the basket, which is the one action
+  // that can take away shopping this app did not put there.
+  productIds: z.array(z.string().regex(/^[a-zA-Z0-9-]+$/).max(100)).max(200).optional(),
+});
 export const submissionSchema = z.object({ attemptId: z.string().uuid(), items: z.array(z.object({ productId: z.string().regex(/^[a-zA-Z0-9-]+$/).max(100), qty: z.number().int().min(1).max(99) })).min(1).max(60) });
 
 // Being signed out does not improve on the next product. Being told to slow
@@ -22,6 +28,63 @@ const RATE_WAITS = [1000, 3000, 8000];
 const RATE_BUDGET_MS = 45000;
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+
+/**
+ * Do one thing to each line, patiently, and report what would not go.
+ *
+ * Shared by adding and removing so that taking something out of a basket has
+ * exactly the manners putting it in does: one failure never abandons the rest,
+ * a throttle is waited out rather than surrendered to, and being signed out
+ * stops the run because nothing after it could work either.
+ */
+async function eachLine(items, write, sleep) {
+  const reasons = new Map();
+  let spentWaiting = 0;
+  // Once Tesco has asked us to slow down, keep the gap for everything after
+  // it too. Going straight back to full speed on the next line is what earns
+  // the next refusal.
+  let gap = 0;
+
+  for (const item of items) {
+    let last;
+    let throttled = 0;
+    let flaky = 0;
+
+    for (;;) {
+      if (gap > 0) await sleep(gap);
+      try { await write(item); last = null; break; }
+      catch (error) { last = error; }
+
+      if (fatal(last)) break;
+
+      if (rateLimited(last)) {
+        const wait = RATE_WAITS[Math.min(throttled, RATE_WAITS.length - 1)];
+        // Waiting is the right answer, but not forever: a shop that sits
+        // there for minutes is its own kind of broken.
+        if (throttled >= RATE_WAITS.length || spentWaiting + wait > RATE_BUDGET_MS) break;
+        throttled += 1;
+        spentWaiting += wait;
+        gap = Math.max(gap, 700);
+        await sleep(wait);
+        continue;
+      }
+
+      if (flaky > 0) break;
+      flaky += 1;
+      await sleep(400);
+    }
+
+    if (last) {
+      reasons.set(item.productId, last);
+      // A dead session will not recover on the next product, and hammering
+      // through the rest only makes it worse.
+      if (fatal(last)) break;
+    }
+  }
+
+  return reasons;
+}
 
 /**
  * Do it, waiting out anything Tesco throttles, for reads only.
@@ -78,50 +141,7 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
     //
     // Retrying is safe here in a way it usually is not: Tesco's add sets an
     // ABSOLUTE quantity, so writing "3" twice leaves 3, not 6.
-    const reasons = new Map();
-    let spentWaiting = 0;
-    // Once Tesco has asked us to slow down, keep the gap for everything after
-    // it too. Going straight back to full speed on the next line is what earns
-    // the next refusal.
-    let gap = 0;
-
-    for (const item of targets) {
-      let last;
-      let throttled = 0;
-      let flaky = 0;
-
-      for (;;) {
-        if (gap > 0) await sleep(gap);
-        try { await client.setQuantity(item.productId, item.qty); last = null; break; }
-        catch (error) { last = error; }
-
-        if (fatal(last)) break;
-
-        if (rateLimited(last)) {
-          const wait = RATE_WAITS[Math.min(throttled, RATE_WAITS.length - 1)];
-          // Waiting is the right answer, but not forever: a shop that sits
-          // there for minutes is its own kind of broken.
-          if (throttled >= RATE_WAITS.length || spentWaiting + wait > RATE_BUDGET_MS) break;
-          throttled += 1;
-          spentWaiting += wait;
-          gap = Math.max(gap, 700);
-          await sleep(wait);
-          continue;
-        }
-
-        if (flaky > 0) break;
-        flaky += 1;
-        await sleep(400);
-      }
-
-      if (last) {
-        reasons.set(item.productId, last);
-        // A dead session will not recover on the next product, and hammering
-        // through the rest only makes it worse.
-        if (fatal(last)) break;
-      }
-    }
-
+    const reasons = await eachLine(targets, item => client.setQuantity(item.productId, item.qty), sleep);
     const basket = await client.readBasket().catch(() => null);
     if (!basket) throw retailerError('BASKET_UNCERTAIN', 'The update could not be verified. Check Tesco; this attempt will not be repeated.');
     const added = targets.filter(t => basket.items.find(i => i.id === t.productId)?.qty === t.qty);
@@ -133,5 +153,53 @@ export async function submitBasket(client, input, directory = join(homedir(), '.
     const result = { ok: true, added, failed, basket, verified: failed.length === 0 };
     await writeFile(receiptPath, JSON.stringify({ result }), { mode: 0o600 });
     return result;
+  } finally { await lock.close(); await unlink(lockPath); }
+}
+
+
+/**
+ * Take things out of the basket.
+ *
+ * Removal is the same Tesco mutation as adding with a quantity of zero, so it
+ * inherits the property that makes retrying safe: writing "gone" twice leaves
+ * it gone. That is why this can be as stubborn as the add path without any
+ * risk of taking away more than was asked for.
+ *
+ * With no ids it empties the basket, which is the only operation here that
+ * touches lines this app did not add. The caller is responsible for having
+ * asked first; this is the part that does as it is told.
+ */
+export async function removeFromBasket(client, input, directory = join(homedir(), '.supermarket', 'attempts'), sleep = pause) {
+  const { attemptId, productIds } = removalSchema.parse(input);
+  await mkdir(directory, { recursive: true });
+  const lockPath = join(directory, 'write.lock');
+  const lock = await open(lockPath, 'wx').catch(() => { throw retailerError('BASKET_UNCERTAIN', 'Another basket attempt is running or needs checking. Inspect Tesco before retrying.'); });
+
+  try {
+    const before = await patiently(() => client.readBasket(), sleep);
+    const held = new Set(before.items.map(item => item.id));
+    // Only what is actually there. Asking Tesco to remove something already
+    // gone is a request that can only fail, and a failure we would then have
+    // to explain.
+    const targets = (productIds ?? [...held]).filter(id => held.has(id)).map(productId => ({ productId }));
+
+    if (targets.length === 0) {
+      return { ok: true, removed: [], failed: [], basket: before, verified: true };
+    }
+
+    const reasons = await eachLine(targets, item => client.removeItem(item.productId), sleep);
+
+    const basket = await client.readBasket().catch(() => null);
+    if (!basket) throw retailerError('BASKET_UNCERTAIN', 'The removal could not be verified. Check Tesco; this attempt will not be repeated.');
+
+    const still = new Set(basket.items.map(item => item.id));
+    const removed = targets.filter(t => !still.has(t.productId));
+    const failed = targets.filter(t => still.has(t.productId)).map(t => ({
+      ...t,
+      inBasket: basket.items.find(i => i.id === t.productId)?.qty ?? 0,
+      error: describe(reasons.get(t.productId)),
+    }));
+
+    return { ok: true, removed, failed, basket, verified: failed.length === 0 };
   } finally { await lock.close(); await unlink(lockPath); }
 }

@@ -626,3 +626,13 @@ button { touch-action:manipulation; }
 .photo-time--cost { padding: 4px 9px; letter-spacing: -.01em; }
 .fresh-facts { display: flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
 .note--version { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* The tick that says "in your basket" is also how you take it back out. It
+   shows a cross on hover or focus, so the undo lives exactly where the thing
+   it undoes is reported, without adding a second control to every line. */
+.tick__in { flex: none; display: inline-flex; color: var(--accent); border: 0; background: none; padding: 4px; margin: -4px; cursor: pointer; border-radius: 50%; }
+.tick__in svg:last-child { display: none; }
+@media (hover: hover) {
+  .tick__in:hover svg:first-child, .tick__in:focus-visible svg:first-child { display: none; }
+  .tick__in:hover svg:last-child, .tick__in:focus-visible svg:last-child { display: inline; color: var(--price); }
+}

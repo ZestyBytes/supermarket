@@ -121,3 +121,16 @@ export async function addToBasket(
 ): Promise<{ added: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
   return request("/basket", { method: "POST", body: JSON.stringify({ items, attemptId }) });
 }
+
+/**
+ * Take things back out. No ids means the whole basket.
+ *
+ * Removal is the same Tesco write as adding with a quantity of zero, so
+ * repeating it is safe in the same way: gone twice is still gone.
+ */
+export async function removeFromBasket(
+  attemptId: string,
+  productIds?: string[],
+): Promise<{ removed: unknown[]; failed: unknown[]; basket: RetailerBasket }> {
+  return request("/basket/remove", { method: "POST", body: JSON.stringify({ attemptId, productIds }) });
+}

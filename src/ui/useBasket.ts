@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addToBasket,
+  removeFromBasket,
   getSession,
   readBasket,
   RetailerError,
@@ -55,6 +56,14 @@ export interface BasketState {
   recheck: () => void;
   /** Buy a different product for this ingredient. Ignored once it is bought. */
   swap: (ingredientId: string, productId: string) => void;
+  /** Take one ingredient back out of the Tesco basket. */
+  undo: (ingredientId: string) => Promise<void>;
+  /** Take everything this week's plan put in back out. */
+  undoAll: () => Promise<void>;
+  /** Empty the Tesco basket completely, including what this app did not add. */
+  empty: () => Promise<void>;
+  /** How many of this week's lines are in the basket now. */
+  inBasket: number;
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -222,6 +231,51 @@ export function useBasket(requirements: Requirement[]): BasketState {
     });
   }, []);
 
+  /**
+   * Put lines back, and forget we ever added them.
+   *
+   * The removal is the easy half. The bookkeeping matters more: `mine` is what
+   * stops the app calling your own shopping someone else's, so anything taken
+   * out has to leave it, or the line would reappear under "already in your
+   * basket" the moment the week changed.
+   */
+  const unwind = useCallback(async (productIds?: string[]) => {
+    setPhase("adding");
+    setProblem(undefined);
+    try {
+      const result = await removeFromBasket(newAttemptId(), productIds);
+      setBasket(result.basket);
+      const gone = new Set(result.basket.items.map((item) => item.id));
+      for (const id of mine.current) if (!gone.has(id)) mine.current.delete(id);
+      setAdded((current) => {
+        const next = new Map(current);
+        for (const [ingredientId, state] of current) {
+          const choice = match?.choices.find((c) => c.requirement.ingredient.id === ingredientId);
+          if (state === "added" && choice && !gone.has(choice.product.id)) next.delete(ingredientId);
+        }
+        return next;
+      });
+      setPhase("armed");
+    } catch (error) {
+      setProblem(error instanceof Error ? error.message : String(error));
+      setPhase("added");
+    }
+  }, [match]);
+
+  const undo = useCallback(async (ingredientId: string) => {
+    const choice = match?.choices.find((c) => c.requirement.ingredient.id === ingredientId);
+    if (choice) await unwind([choice.product.id]);
+  }, [match, unwind]);
+
+  const undoAll = useCallback(async () => {
+    const ours = [...new Set(match?.choices.map((c) => c.product.id) ?? [])].filter((id) => mine.current.has(id));
+    if (ours.length > 0) await unwind(ours);
+  }, [match, unwind]);
+
+  const empty = useCallback(async () => {
+    await unwind(undefined);
+  }, [unwind]);
+
   const add = useCallback(async () => {
     if (!match || match.choices.length === 0 || writing.current || matchedKey.current!==key || phase!=='armed') return;
     writing.current=true;
@@ -305,5 +359,9 @@ export function useBasket(requirements: Requirement[]): BasketState {
     add,
     recheck: connect,
     swap,
+    undo,
+    undoAll,
+    empty,
+    inBasket: items.filter((item) => item.state === "added").length,
   };
 }

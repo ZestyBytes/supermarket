@@ -86,5 +86,10 @@ export function createOpenSupermarketsAdapter({ getSession = loadSession, create
     },
     // Upstream Tesco add sets an ABSOLUTE quantity. Callers must read before writing.
     async setQuantity(productId, quantity) { return call(p => p.addToBasket(productId, quantity), false); },
+    // Removal is the same mutation with a quantity of zero. Going through
+    // removeFromBasket rather than setQuantity(id, 0) because it resolves
+    // whichever id form it is handed, the product uid or the basket line id,
+    // against the live basket first.
+    async removeItem(productId) { return call(p => p.removeFromBasket(productId), false); },
   };
 }

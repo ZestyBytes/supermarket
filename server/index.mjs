@@ -4,7 +4,7 @@ import { createOpenSupermarketsAdapter, retailerError } from "./adapters/open-su
 import { createMockAdapter } from "./adapters/mock.mjs";
 import { createQueue } from "./queue.mjs";
 import { describeSession, forgetSession, loadSession } from "./session.mjs";
-import { submitBasket, submissionSchema } from "./basket.mjs";
+import { removeFromBasket, removalSchema, submitBasket, submissionSchema } from "./basket.mjs";
 import { startConnectionReceiver } from "./connect.mjs";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -37,6 +37,13 @@ const routes = {
     const input = submissionSchema.parse(body);
     // Queue the ENTIRE transaction; never retry basket mutations.
     return queue(() => submitBasket(client, input), { retryable: () => false });
+  },
+  "POST /api/basket/remove": async (_url, body) => {
+    const input = removalSchema.parse(body);
+    // Same rule as adding: the whole transaction is queued, and never retried
+    // from out here, because it does its own retrying where it can tell what
+    // has already happened.
+    return queue(() => removeFromBasket(client, input), { retryable: () => false });
   },
 };
 

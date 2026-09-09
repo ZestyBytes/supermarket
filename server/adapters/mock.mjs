@@ -104,6 +104,10 @@ export function createMockAdapter({ failEvery = 0 } = {}) {
       basket.set(productId, { ...product, qty: (existing?.qty ?? 0) + qty });
       return { ok: true };
     },
+    async removeItem(productId) {
+      maybeFail();
+      basket.delete(productId);
+    },
     async setQuantity(productId, qty) {
       maybeFail();
       const product = find(productId);
