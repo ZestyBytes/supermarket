@@ -298,7 +298,12 @@ button { touch-action:manipulation; }
 /* Both live on the photo now: time top-left, add/remove top-right. */
 .photo-check { position:absolute; right:8px; top:8px; background:rgba(255,255,255,.92); color:var(--accent); width:30px; height:30px; border-radius:50%; display:grid; place-items:center; box-shadow:0 1px 3px rgba(0,0,0,.18); }
 .photo-check.is-on { background:var(--accent); color:white; }
-.photo-time { position:absolute; left:8px; top:8px; display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.92); color:var(--ink); font-size:12px; font-weight:700; padding:3px 8px 3px 6px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+/* line-height is set here, not left to inherit. The button sets it to 0 so the
+   photograph has no gap under it, and this badge used to get its height from
+   the clock icon inside it. Take the icon away and the pill collapses to its
+   own padding, which is what the price did: a 6px sliver with the text
+   spilling out of it. */
+.photo-time { position:absolute; left:8px; top:8px; display:flex; align-items:center; gap:4px; line-height:1.4; background:rgba(255,255,255,.92); color:var(--ink); font-size:12px; font-weight:700; padding:3px 8px 3px 6px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.18); }
 .photo-time svg { width:13px; height:13px; }
 .photo-check svg { width:18px; }
 .fresh-details { padding:0 12px 12px; font-size:13px; line-height:1.5; color:var(--muted); }
@@ -618,5 +623,5 @@ button { touch-action:manipulation; }
 /* The price takes the badge the cooking time had. Both are worth knowing, but
    only one decides anything, and two badges on one corner of a photograph is
    one too many. The time is still in the card's details. */
-.photo-time--cost { padding: 3px 9px; }
+.photo-time--cost { padding: 4px 9px; letter-spacing: -.01em; }
 .fresh-facts { display: flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
