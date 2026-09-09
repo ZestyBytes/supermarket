@@ -62,6 +62,8 @@ export interface BasketState {
   inBasket: number;
   /** True while the basket is being brought in line with the week. */
   syncing: boolean;
+  /** Do the outstanding basket work now rather than waiting. */
+  sendNow: () => void;
 }
 
 const NOTHING: RetailerBasket["items"] = [];
@@ -386,5 +388,6 @@ export function useBasket(requirements: Requirement[]): BasketState {
     empty,
     inBasket: items.filter((item) => item.state === "added").length,
     syncing,
+    sendNow: () => { void sync(); },
   };
 }

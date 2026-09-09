@@ -22,7 +22,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$supervisor = Join-Path $PSScriptRoot 'keep-running.mjs'
+# The wrapper, not the script: it is what starts the supervisor again after
+# the supervisor has replaced its own code.
+$supervisor = Join-Path $PSScriptRoot 'supervise.cmd'
 
 if ($Remove) {
   Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -32,11 +34,12 @@ if ($Remove) {
 
 if (-not (Test-Path $supervisor)) { throw "Cannot find $supervisor" }
 
-$node = (Get-Command node -ErrorAction SilentlyContinue).Source
-if (-not $node) { throw 'Node is not on the PATH. Install Node, then run this again.' }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  throw 'Node is not on the PATH. Install Node, then run this again.'
+}
 
-$action = New-ScheduledTaskAction -Execute $node `
-  -Argument "`"$supervisor`" --checkMinutes=$CheckMinutes" -WorkingDirectory $root
+$action = New-ScheduledTaskAction -Execute 'cmd.exe' `
+  -Argument "/c `"$supervisor`" --checkMinutes=$CheckMinutes" -WorkingDirectory $root
 
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 

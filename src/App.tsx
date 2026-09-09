@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { consolidate } from "./domain/consolidate";
 import { surpriseWeek } from "./domain/weekPlan";
 import { INGREDIENTS } from "./data/ingredients";
@@ -9,6 +9,7 @@ import { WeekBar } from "./ui/WeekBar";
 import { MealDeck } from "./ui/MealDeck";
 import { useBasket } from "./ui/useBasket";
 import { useStock } from "./ui/useStock";
+import { mealProgress } from "./domain/mealProgress";
 import { HaveList } from "./ui/HaveList";
 import { Connection } from "./ui/Connection";
 import { AddToBasket } from "./ui/AddToBasket";
@@ -37,6 +38,12 @@ export function App() {
   // what it would sell you for this week in particular.
   const basket = useBasket(toBuy);
   const { stock: shelf, prices } = useStock(RECIPES, INGREDIENTS);
+
+  const progress = useCallback(
+    (recipeId: string) =>
+      mealProgress(recipeId, toBuy, (id) => basket.items.find((item) => item.ingredientId === id)?.state),
+    [toBuy, basket.items],
+  );
 
   // The catalogue sweep says what every dinner would cost and whether it can be
   // shopped, which is what you want while choosing. The week's own match is
@@ -103,6 +110,7 @@ export function App() {
             stock={stock}
             prices={prices}
             servings={servings}
+            progress={progress}
           />
         </main>
       )}

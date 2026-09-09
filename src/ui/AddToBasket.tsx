@@ -19,13 +19,17 @@ export function AddToBasket({ state, meals }: { state: BasketState; meals: numbe
   if (meals === 0) return null;
   if (state.phase === "offline" || state.phase === "disconnected") return null;
 
+  // A button, but only where one earns its place. It is not in the ordinary
+  // path, because picking the dinner was the decision and pressing send again
+  // afterwards is the same decision twice. It is here, where the automatic
+  // attempt has failed and waiting has stopped being an answer.
   if (state.problem) {
     return (
       <div className="dock">
         <div className="working working--bad" role="alert">
           <span className="working__text">{state.problem}</span>
-          <button className="working__again" type="button" onClick={state.recheck}>
-            Try again
+          <button className="working__again" type="button" disabled={state.syncing} onClick={state.sendNow}>
+            {state.syncing ? "Sending" : "Send to Tesco now"}
           </button>
         </div>
       </div>

@@ -11,7 +11,7 @@ title Supermarket
 cd /d "%~dp0"
 
 start "" http://127.0.0.1:5173
-node scripts\keep-running.mjs %*
+call scripts\supervise.cmd %*
 
 echo.
 echo Supermarket has stopped. Press any key to close.

@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { matchesMeal } from '../domain/mealSearch';
 import { mealStock, type Stock } from '../domain/stock';
 import { mealCost, type UnitPrices } from '../domain/mealCost';
+import type { MealState } from '../domain/mealProgress';
 import { money } from '../domain/units';
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
   prices: UnitPrices;
   /** How many people each dinner is cooked for. */
   servings: number;
+  /** How far each chosen meal has got into the basket. */
+  progress: (recipeId: string) => MealState;
 }
 
 /**
@@ -28,7 +31,7 @@ interface Props {
  * moved every other card under your thumb mid-tap, which is worse than having
  * to scroll: you lose your place in a grid you were reading.
  */
-export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, prices, servings }: Props) {
+export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, prices, servings, progress }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const chosen = new Set(plan.map((m) => m.recipeId));
@@ -54,6 +57,7 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
           const have = mealStock(recipe, stock, ingredients);
           const short = have.state === 'short';
           const cost = mealCost(recipe, servings, prices, byId);
+          const bought = selected ? progress(recipe.id) : 'none';
 
           return (
             <li className={`fresh-card${selected ? ' is-selected' : ''}${short ? ' is-short' : ''}`} key={recipe.id}>
@@ -75,8 +79,24 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, p
                     {recipe.minutes}
                   </span>
                 )}
-                <span className={`photo-check${selected ? ' is-on' : ''}`}>
-                  <Icon name={selected ? 'check' : 'plus'} />
+                {/* A tick the moment you tap only says the app heard you, which
+                    was never in doubt. It waits until the shopping is actually
+                    in the basket, and turns while it is not. */}
+                <span
+                  className={`photo-check${selected ? ' is-on' : ''}${bought === 'working' ? ' is-working' : ''}`}
+                  title={
+                    bought === 'working'
+                      ? `Adding ${recipe.name} to your basket`
+                      : bought === 'short'
+                        ? `${recipe.name} is in, apart from what Tesco had none of`
+                        : undefined
+                  }
+                >
+                  {bought === 'working' ? (
+                    <span className="spinner" aria-label="Going into your basket" />
+                  ) : (
+                    <Icon name={selected ? (bought === 'short' ? 'warning' : 'check') : 'plus'} />
+                  )}
                 </span>
                 {short && (
                   <span className="photo-short" title={`Tesco has no ${have.missing.join(', ')}`}>

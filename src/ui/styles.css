@@ -631,3 +631,9 @@ button { touch-action:manipulation; }
 .done__note { display: block; font-weight: 500; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .note--warn { color: var(--price); font-weight: 600; }
 .wide--danger { background: var(--price); color: #FFF; border-color: var(--price); margin-bottom: 8px; }
+
+/* Turning, not ticked: the meal is chosen but its shopping is still going in. */
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; display: block; }
+@media (prefers-reduced-motion: no-preference) { .spinner { animation: spin .8s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.photo-check.is-working { background: rgba(255,255,255,.92); color: var(--accent); }

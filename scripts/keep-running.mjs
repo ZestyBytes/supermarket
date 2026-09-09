@@ -37,6 +37,8 @@ const UI_PORT = Number(options.uiPort ?? 5173);
 const API_PORT = Number(options.apiPort ?? 8787);
 // A crash that repeats is not worth hammering: back off, and say so once.
 const BACKOFF_MS = [0, 2_000, 5_000, 15_000, 30_000, 60_000];
+/** Told to the wrapper: I have replaced my own code, start me again. */
+const RESTART_ME = 75;
 
 function say(text) {
   console.log(`[${new Date().toLocaleTimeString()}] ${text}`);
@@ -99,6 +101,15 @@ async function clean() {
   const unstaged = await git('diff', '--quiet');
   const staged = await git('diff', '--cached', '--quiet');
   return unstaged.ok && staged.ok;
+}
+
+/** This file, as it is on disk right now. */
+async function ownHash() {
+  try {
+    return createHash('sha1').update(await readFile(new URL(import.meta.url))).digest('hex');
+  } catch {
+    return '';
+  }
 }
 
 async function lockHash() {
@@ -328,7 +339,20 @@ async function main() {
 
     if (!stopping && Date.now() - lastCheck >= CHECK_MS) {
       lastCheck = Date.now();
-      if (await update()) await restart('Restarting on the new version.', true);
+      const own = await ownHash();
+      if (await update()) {
+        // Pulling a new supervisor does not make this one new. Node read this
+        // file into memory when it started and will never read it again, so
+        // the update landed on disk while the old logic kept running: the fix
+        // for the restart loop arrived and the restart loop carried on. Hand
+        // back to the wrapper, which starts the version that was just pulled.
+        if ((await ownHash()) !== own) {
+          say('The supervisor itself changed. Handing over to the new one.');
+          await stop();
+          process.exit(RESTART_ME);
+        }
+        await restart('Restarting on the new version.', true);
+      }
     }
   }
 }
