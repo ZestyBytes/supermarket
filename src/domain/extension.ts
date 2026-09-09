@@ -69,3 +69,22 @@ async function borrowHeaders(): Promise<TescoHeaders | undefined> {
 export function extensionTransport(): Transport | undefined {
   return inExtension() ? createTescoTransport({ headers: borrowHeaders }) : undefined;
 }
+
+
+/**
+ * What the extension has actually observed, for when it says something the
+ * person can see is untrue.
+ *
+ * Names of headers and counts only. The token's value is the one thing that
+ * must never be displayed, so it is never sent here in the first place.
+ */
+export async function whatItSaw(): Promise<Record<string, string>> {
+  const send = chromeApi()?.runtime?.sendMessage;
+  if (!send) return {};
+  try {
+    const answer = (await send({ type: "tesco-seen" })) as { seen?: Record<string, string> } | undefined;
+    return answer?.seen ?? {};
+  } catch {
+    return {};
+  }
+}

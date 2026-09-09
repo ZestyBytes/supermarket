@@ -34,6 +34,11 @@ chrome.action.onClicked.addListener(async () => {
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return;
 
+  if (message?.type === 'tesco-seen') {
+    chrome.storage.session.get('tescoSeen').then(({ tescoSeen }) => reply({ seen: tescoSeen ?? {} }));
+    return true;
+  }
+
   if (message?.type === 'tesco-headers') {
     chrome.storage.session.get('tescoHeaders').then(({ tescoHeaders }) => reply({ headers: tescoHeaders }));
     return true;
@@ -155,13 +160,28 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
   ['requestHeaders', 'extraHeaders'],
 );
 
+async function note(patch) {
+  const { tescoSeen = {} } = await chrome.storage.session.get('tescoSeen');
+  await chrome.storage.session.set({ tescoSeen: { ...tescoSeen, ...patch, at: new Date().toLocaleTimeString() } });
+}
+
 async function capture(details) {
-  if (details.tabId < 0) return;
+  if (details.tabId < 0) {
+    await note({ requests: 'seen, but not from a tab' });
+    return;
+  }
+
+  const present = (details.requestHeaders || []).map(h => h.name.toLowerCase());
+  await note({ requests: 'yes', sawHeaders: present.filter(n => allowed.includes(n)).join(', ') || 'none of the ones we look for' });
 
   const headers = Object.fromEntries(
     (details.requestHeaders || []).filter(h => allowed.includes(h.name.toLowerCase()) && h.value).map(h => [h.name.toLowerCase(), h.value]),
   );
-  if (!/^Bearer\s+/i.test(headers.authorization || '')) return;
+  if (!/^Bearer\s+/i.test(headers.authorization || '')) {
+    await note({ token: headers.authorization ? 'present but not a Bearer token' : 'no authorization header on that request' });
+    return;
+  }
+  await note({ token: 'captured' });
 
   // Always, and before anything else decides it is not interested. The app in
   // the tab needs these whether or not the old local-server handshake is going

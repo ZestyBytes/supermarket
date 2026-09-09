@@ -661,3 +661,7 @@ button { touch-action:manipulation; }
 .flag--good { background: #E4F0E8; color: #24603F; }
 .flag--part { background: #FBF0DC; color: #8A5B10; }
 .flag--bad { background: var(--price-soft); color: var(--price); }
+.gate__saw { margin: 16px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); text-align: left; font-size: 12.5px; }
+.gate__saw div { display: flex; gap: 10px; justify-content: space-between; padding: 3px 0; }
+.gate__saw dt { color: var(--muted); flex: none; }
+.gate__saw dd { margin: 0; font-weight: 600; text-align: right; word-break: break-word; }
