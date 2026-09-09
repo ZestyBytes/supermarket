@@ -33,6 +33,63 @@
     window.postMessage({ source: 'supermarket-tesco', host, headers: found }, '*');
   }
 
+  // Say we are here, before anything else. "None seen yet" could not tell
+  // "the watcher never ran" from "it ran and saw nothing", and those want
+  // opposite fixes: one is the extension's problem, the other is Tesco's page.
+  // Not immediately: this runs at document_start alongside the relay that
+  // carries its messages, and whichever attaches second loses everything sent
+  // before it. Announcing once into that gap is the same as not announcing.
+  const announce = () => window.postMessage({ source: 'supermarket-tesco', alive: location.host }, '*');
+  setTimeout(announce, 0);
+  setTimeout(announce, 1500);
+
+  /**
+   * Look for the token where Tesco's own app keeps it.
+   *
+   * Intercepting a request only works if the page makes one while we are
+   * watching, and a site whose calls come from its own service worker never
+   * makes one where we can see it. What it does do is keep the token
+   * somewhere its scripts can reach, and so can we, standing in the same
+   * world they do.
+   */
+  function fromStorage() {
+    const looksLikeToken = /^(Bearer\s+)?ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./;
+    for (const store of [window.localStorage, window.sessionStorage]) {
+      let keys = [];
+      try { keys = Object.keys(store); } catch { continue; }
+      for (const key of keys) {
+        let raw = '';
+        try { raw = store.getItem(key) || ''; } catch { continue; }
+        const candidates = [raw];
+        // Tokens are as often inside a JSON blob as stored on their own.
+        if (raw.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(raw);
+            for (const value of Object.values(parsed)) if (typeof value === 'string') candidates.push(value);
+          } catch { /* not JSON after all */ }
+        }
+        for (const candidate of candidates) {
+          if (looksLikeToken.test(candidate.trim())) {
+            const token = candidate.trim();
+            return token.startsWith('Bearer') ? token : `Bearer ${token}`;
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  function offerStored() {
+    const authorization = fromStorage();
+    if (authorization) window.postMessage({ source: 'supermarket-tesco', host: location.host, headers: { authorization }, from: 'the page store' }, '*');
+    else window.postMessage({ source: 'supermarket-tesco', searched: 'no token in the page store' }, '*');
+  }
+
+  // Repeatedly, because the token is written by the page's own scripts and
+  // this runs before any of them. One look at document_start finds an empty
+  // store every time and reports it as though it were the answer.
+  for (const after of [0, 1500, 4000, 9000, 20000]) setTimeout(offerStored, after);
+
   const realFetch = window.fetch;
   window.fetch = function (input, init) {
     try {

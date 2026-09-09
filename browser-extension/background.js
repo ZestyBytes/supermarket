@@ -83,12 +83,18 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const headers = message.headers || {};
     const known = Object.keys(headers);
     (async () => {
+      if (message.alive) { await note({ watcher: `running on ${message.alive}` }); return; }
+      if (message.searched && !headers.authorization) {
+        const { tescoHeaders } = await chrome.storage.session.get('tescoHeaders');
+        if (!tescoHeaders?.authorization) await note({ store: message.searched });
+        return;
+      }
       const { tescoHosts = [] } = await chrome.storage.session.get('tescoHosts');
       const hosts = [...new Set([...tescoHosts, message.host].filter(Boolean))].slice(0, 8);
       await chrome.storage.session.set({ tescoHosts: hosts });
       if (/^Bearer\s+/i.test(headers.authorization || '')) {
         await chrome.storage.session.set({ tescoHeaders: headers });
-        await note({ requests: 'yes, from the Tesco page', hosts: hosts.join(', '), sawHeaders: known.join(', '), token: 'captured' });
+        await note({ requests: 'yes, from the Tesco page', hosts: hosts.join(', '), sawHeaders: known.join(', '), token: `captured from ${message.from || 'a request'}` });
       } else {
         await note({ requests: 'yes, from the Tesco page', hosts: hosts.join(', '), sawHeaders: known.join(', ') || 'none we look for', token: 'not on those requests yet' });
       }

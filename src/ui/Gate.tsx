@@ -93,6 +93,8 @@ function useSaw(wanted: boolean): Record<string, string> | undefined {
 }
 
 const WORDS: Record<string, string> = {
+  watcher: "Watcher",
+  store: "Token in page storage",
   answer: "Tesco replied",
   hosts: "Tesco pages called",
   requests: "Seen a Tesco request",

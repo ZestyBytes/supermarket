@@ -10,6 +10,13 @@ window.addEventListener('message', (event) => {
   const message = event.data;
   if (message?.source !== 'supermarket-tesco') return;
   chrome.runtime
-    .sendMessage({ type: 'tesco-headers-seen', host: message.host, headers: message.headers || {} })
+    .sendMessage({
+      type: 'tesco-headers-seen',
+      host: message.host,
+      alive: message.alive,
+      searched: message.searched,
+      from: message.from,
+      headers: message.headers || {},
+    })
     .catch(() => {});
 });
