@@ -551,14 +551,7 @@ button { touch-action:manipulation; }
 .dock__go:disabled { opacity:.65; }
 .dock__note { background:var(--paper); padding:5px 6px; font-size:12px; text-wrap:balance; }
 .task-progress { padding:13px 16px 14px; border-radius:16px; background:var(--glass); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); box-shadow:var(--floating-shadow); }
-.task-progress__heading { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; }
-.task-progress__heading span:last-child { margin-left:auto; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .task-progress p { font-size:12px; color:var(--muted); margin-top:5px; }
-.task-progress progress { width:100%; height:4px; display:block; margin-top:10px; appearance:none; border:0; border-radius:4px; background:#e1e9e2; overflow:hidden; }
-.task-progress progress::-webkit-progress-bar { background:#e1e9e2; }
-.task-progress progress::-webkit-progress-value { background:#4e8060; }
-.task-progress progress::-moz-progress-bar { background:#4e8060; }
-.task-progress progress:not([value]) { background:linear-gradient(90deg,#e1e9e2,#6e9478,#e1e9e2); background-size:200% 100%; animation:loading-sweep 1.5s ease-in-out infinite; }
 .is-loading { animation:loading-pulse 1.4s ease-in-out infinite; }
 @keyframes loading-sweep { to { background-position:-200% 0; } }
 @keyframes loading-pulse { 50% { opacity:.4; } }
@@ -583,10 +576,32 @@ button { touch-action:manipulation; }
 .done { padding:12px; font-size:14px; }
 @media (min-width:700px) { .app-header { padding:16px 30px; } .sheet { padding:16px 30px 220px; } .fresh-controls h1,.page-title { font-size:32px; } .fresh-grid { gap:20px; } .photo-name { font-size:16px; } .fresh-thumbs { max-width:100%; } }
 @media (max-width:360px) { .app-header,.sheet { padding-left:14px; padding-right:14px; } .wordmark { font-size:16px; } .connection-pill { font-size:11px; } .photo-name { font-size:13px; } }
-@media (prefers-reduced-transparency:reduce) { .tabs,.task-progress,.photo-name { background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; } }
+@media (prefers-reduced-transparency:reduce) { .tabs,.task-progress,.working,.photo-name { background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; } }
 .tick__packs { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .tick__for--swap { color: var(--accent); font-weight: 600; }
 .swaps__wrap { margin: 0 0 12px 46px; }
 .swaps__for { margin: 0 0 7px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .swaps { margin: 0; }
 .dock__note--money { color: var(--price); font-weight: 600; }
+
+/* Background work, reported at the size of background work. It used to be a
+   card with a heading, a sentence and a bar, standing where the button goes
+   for something you neither asked for nor can hurry along. */
+.working {
+  padding: 9px 14px 10px; border-radius: 13px;
+  background: var(--glass); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: var(--floating-shadow);
+}
+.working__text { display: flex; align-items: baseline; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.working__n { margin-left: auto; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.working progress {
+  width: 100%; height: 3px; display: block; margin-top: 7px;
+  appearance: none; border: 0; border-radius: 3px; background: #e1e9e2; overflow: hidden;
+}
+.working progress::-webkit-progress-bar { background: #e1e9e2; }
+.working progress::-webkit-progress-value { background: #4e8060; }
+.working progress::-moz-progress-bar { background: #4e8060; }
+.working progress:not([value]) {
+  background: linear-gradient(90deg,#e1e9e2,#6e9478,#e1e9e2);
+  background-size: 200% 100%; animation: loading-sweep 1.5s ease-in-out infinite;
+}
