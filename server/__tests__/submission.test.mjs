@@ -89,4 +89,89 @@ describe('verified basket submission', () => {
   it('rejects invalid quantities before touching a basket', async () => {
     await expect(submitBasket({}, { attemptId: randomUUID(), items: [{ productId: '123', qty: -1 }] })).rejects.toThrow();
   });
+
+  // "Tesco asked us to slow down" was treated exactly like a dead session:
+  // the shop stopped dead and the person was handed a button to press. It is
+  // the opposite kind of failure. Waiting is what it is asking for.
+  it('waits out a rate limit and gets the line in', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const slept = [];
+    const held = new Map();
+    let refusals = 2;
+    const client = {
+      readBasket: async () => ({ total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) }),
+      setQuantity: async (id, qty) => {
+        if (refusals > 0) { refusals -= 1; throw Object.assign(new Error('slow down'), { code: 'RATE_LIMITED' }); }
+        held.set(id, qty);
+      },
+    };
+    const input = { attemptId: randomUUID(), items: [{ productId: 'a', qty: 1 }] };
+
+    const result = await submitBasket(client, input, dir, async (ms) => { slept.push(ms); });
+
+    expect(result.verified).toBe(true);
+    expect(held.get('a')).toBe(1);
+    // Backed off further each time rather than hammering.
+    expect(slept.filter((ms) => ms >= 1000)).toEqual([1000, 3000]);
+  });
+
+  it('gives up on a line Tesco keeps throttling, and still shops the rest', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const held = new Map();
+    const client = {
+      readBasket: async () => ({ total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) }),
+      setQuantity: async (id, qty) => {
+        if (id === 'a') throw Object.assign(new Error('slow down'), { code: 'RATE_LIMITED' });
+        held.set(id, qty);
+      },
+    };
+    const input = { attemptId: randomUUID(), items: [{ productId: 'a', qty: 1 }, { productId: 'b', qty: 2 }] };
+
+    const result = await submitBasket(client, input, dir, async () => {});
+
+    // The throttled line is reported, and the rest of the week still arrives.
+    expect(result.failed.map((f) => f.productId)).toEqual(['a']);
+    expect(result.failed[0].error.code).toBe('RATE_LIMITED');
+    expect(held.get('b')).toBe(2);
+  });
+
+  it('slows the remaining lines down once it has been throttled once', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const slept = [];
+    const held = new Map();
+    let first = true;
+    const client = {
+      readBasket: async () => ({ total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) }),
+      setQuantity: async (id, qty) => {
+        if (first) { first = false; throw Object.assign(new Error('slow down'), { code: 'RATE_LIMITED' }); }
+        held.set(id, qty);
+      },
+    };
+    const input = { attemptId: randomUUID(), items: [{ productId: 'a', qty: 1 }, { productId: 'b', qty: 1 }] };
+
+    await submitBasket(client, input, dir, async (ms) => { slept.push(ms); });
+
+    // Going back to full speed straight after a refusal earns the next one.
+    expect(slept).toContain(700);
+    expect(held.get('b')).toBe(1);
+  });
+
+  it('waits out a throttled basket read instead of failing before it starts', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'supermarket-submission-'));
+    const held = new Map();
+    let refusals = 2;
+    const client = {
+      readBasket: async () => {
+        if (refusals > 0) { refusals -= 1; throw Object.assign(new Error('slow down'), { code: 'RATE_LIMITED' }); }
+        return { total: 0, items: [...held].map(([id, qty]) => ({ id, qty, title: id, price: 1 })) };
+      },
+      setQuantity: async (id, qty) => { held.set(id, qty); },
+    };
+    const input = { attemptId: randomUUID(), items: [{ productId: 'a', qty: 1 }] };
+
+    const result = await submitBasket(client, input, dir, async () => {});
+
+    expect(result.verified).toBe(true);
+    expect(held.get('a')).toBe(1);
+  });
 });

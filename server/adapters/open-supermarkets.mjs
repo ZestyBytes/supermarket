@@ -11,7 +11,7 @@ export function classify(error) {
   if (error?.code && ['SESSION_MISSING', 'SESSION_EXPIRED', 'BAD_REQUEST', 'BASKET_UNCERTAIN'].includes(error.code)) return error;
   const status = error?.response?.status;
   if ([401, 403].includes(status) || /unauthori[sz]ed|session rejected|session expired/i.test(error?.message ?? '')) return retailerError('SESSION_EXPIRED', 'Tesco needs to reconnect. Run npm run connect; sign in only if the browser asks.');
-  if (status === 429) return retailerError('RATE_LIMITED', 'Tesco asked us to slow down. Wait a moment and try again.');
+  if (status === 429) return retailerError('RATE_LIMITED', 'Tesco is asking us to slow down.');
   return retailerError('RETAILER_ERROR', 'Open Supermarkets could not complete the Tesco request. No raw retailer response has been exposed.');
 }
 const productSchema = z.object({ product_uid: z.string().min(1), name: z.string().min(1), retail_price: z.object({ price: z.number().nonnegative() }), in_stock: z.boolean(), size: z.string().optional() });
