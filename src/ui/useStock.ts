@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSession, searchBatch, RetailerError } from "../domain/retailerClient";
 import { checkOrder, type Stock } from "../domain/stock";
+import { unitPriceFrom, type UnitPrices } from "../domain/mealCost";
 import { searchTermFor } from "../domain/liveMatch";
 import type { Ingredient, Recipe } from "../domain/types";
 
@@ -9,6 +10,8 @@ const GROUP = 8;
 
 export interface StockState {
   stock: Stock;
+  /** What one gram, ml or item of each ingredient costs, for pricing dinners. */
+  prices: UnitPrices;
   /** Ingredients answered so far, out of the whole catalogue. */
   done: number;
   total: number;
@@ -33,6 +36,7 @@ export interface StockState {
 export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockState {
   const [state, setState] = useState<StockState>({
     stock: new Map(),
+    prices: new Map(),
     done: 0,
     total: 0,
     running: false,
@@ -65,6 +69,10 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
       setState((s) => ({ ...s, running: true, total: order.length }));
 
       const stock: Stock = new Map();
+      // The same answers already price the meal, so keeping the rate costs
+      // nothing beyond the arithmetic and saves asking Tesco twice.
+      const prices: UnitPrices = new Map();
+      const byId = new Map(ingredients.map((i) => [i.id, i]));
 
       for (let offset = 0; offset < order.length; offset += GROUP) {
         if (cancelled) return;
@@ -78,6 +86,9 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
             // A failed search is not an answer; leave it unknown and move on.
             if (!answer || answer.error) continue;
             stock.set(id, answer.results.length > 0 ? "yes" : "no");
+            const ingredient = byId.get(id);
+            const rate = ingredient ? unitPriceFrom(answer.results, ingredient) : undefined;
+            if (rate != null) prices.set(id, rate);
           }
         } catch (error) {
           if (error instanceof RetailerError && (error.code === "OFFLINE" || error.code === "SESSION_EXPIRED")) {
@@ -88,7 +99,7 @@ export function useStock(recipes: Recipe[], ingredients: Ingredient[]): StockSta
         }
 
         if (!cancelled) {
-          setState((s) => ({ ...s, stock: new Map(stock), done: stock.size, running: true }));
+          setState((s) => ({ ...s, stock: new Map(stock), prices: new Map(prices), done: stock.size, running: true }));
         }
       }
 

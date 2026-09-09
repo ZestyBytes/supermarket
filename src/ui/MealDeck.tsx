@@ -4,6 +4,8 @@ import { MealPhoto } from './MealPhoto';
 import { Icon } from './Icon';
 import { matchesMeal } from '../domain/mealSearch';
 import { mealStock, type Stock } from '../domain/stock';
+import { mealCost, type UnitPrices } from '../domain/mealCost';
+import { money } from '../domain/units';
 
 interface Props {
   recipes: Recipe[];
@@ -13,6 +15,10 @@ interface Props {
   onRemove: (id: string) => void;
   /** What Tesco has said so far, filled in while you browse. */
   stock: Stock;
+  /** Tesco's rate per gram, ml or item, for pricing a dinner before you pick it. */
+  prices: UnitPrices;
+  /** How many people each dinner is cooked for. */
+  servings: number;
 }
 
 /**
@@ -22,10 +28,11 @@ interface Props {
  * moved every other card under your thumb mid-tap, which is worse than having
  * to scroll: you lose your place in a grid you were reading.
  */
-export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock }: Props) {
+export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock, prices, servings }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const chosen = new Set(plan.map((m) => m.recipeId));
+  const byId = new Map(ingredients.map((i) => [i.id, i]));
   const filtered = recipes.filter((r) => matchesMeal(r, query, ingredients));
 
   return (
@@ -46,6 +53,7 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock }:
           const selected = chosen.has(recipe.id);
           const have = mealStock(recipe, stock, ingredients);
           const short = have.state === 'short';
+          const cost = mealCost(recipe, servings, prices, byId);
 
           return (
             <li className={`fresh-card${selected ? ' is-selected' : ''}${short ? ' is-short' : ''}`} key={recipe.id}>
@@ -71,7 +79,14 @@ export function MealDeck({ recipes, plan, ingredients, onAdd, onRemove, stock }:
                     {have.missing.length} missing
                   </span>
                 )}
-                <span className="photo-name">{recipe.name}</span>
+                <span className="photo-name">
+                  {recipe.name}
+                  {cost && (
+                    <span className="photo-cost">
+                      {money(cost.each)} a head
+                    </span>
+                  )}
+                </span>
               </button>
 
               <button

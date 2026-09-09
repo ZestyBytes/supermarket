@@ -605,3 +605,8 @@ button { touch-action:manipulation; }
   background: linear-gradient(90deg,#e1e9e2,#6e9478,#e1e9e2);
   background-size: 200% 100%; animation: loading-sweep 1.5s ease-in-out infinite;
 }
+
+/* The price sits under the dinner's name, on the same frosted strip: it is
+   part of what you are choosing between, not a badge stuck on the picture. */
+.photo-name { display: flex; flex-direction: column; gap: 1px; }
+.photo-cost { font-size: 11.5px; font-weight: 600; color: var(--muted); letter-spacing: 0; }

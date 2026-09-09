@@ -8,6 +8,7 @@ import { usePersistentState } from "./ui/usePersistentState";
 import { WeekBar } from "./ui/WeekBar";
 import { MealDeck } from "./ui/MealDeck";
 import { useBasket } from "./ui/useBasket";
+import { useStock } from "./ui/useStock";
 import { HaveList } from "./ui/HaveList";
 import { Connection } from "./ui/Connection";
 import { AddToBasket } from "./ui/AddToBasket";
@@ -35,8 +36,16 @@ export function App() {
   // Two background jobs, both started for you: what Tesco stocks at all, and
   // what it would sell you for this week in particular.
   const basket = useBasket(toBuy);
-  // Only selected ingredients need live requests; don't queue the full catalogue ahead of the shop.
-  const stock = useMemo(() => new Map<string, 'yes' | 'no'>(basket.items.filter(i=>i.product).map(i=>[i.ingredientId,'yes'])),[basket.items]);
+  const { stock: shelf, prices } = useStock(RECIPES, INGREDIENTS);
+
+  // The catalogue sweep says what every dinner would cost and whether it can be
+  // shopped, which is what you want while choosing. The week's own match is
+  // the better answer for what is in it, so it wins where the two overlap.
+  const stock = useMemo(() => {
+    const merged = new Map(shelf);
+    for (const item of basket.items) if (item.product) merged.set(item.ingredientId, 'yes');
+    return merged;
+  }, [shelf, basket.items]);
 
   function addMeal(recipeId: string) {
     if (!RECIPES.some((r) => r.id === recipeId)) return;
@@ -92,6 +101,8 @@ export function App() {
             onAdd={addMeal}
             onRemove={removeRecipe}
             stock={stock}
+            prices={prices}
+            servings={servings}
           />
         </main>
       )}
