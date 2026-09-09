@@ -29,7 +29,7 @@ export function inExtension(): boolean {
  * browser is open. Nothing is written to disk, and the app asks for them at
  * the moment it needs them rather than keeping a copy of its own.
  */
-async function borrowHeaders(): Promise<TescoHeaders | undefined> {
+async function ask(): Promise<TescoHeaders | undefined> {
   const send = chromeApi()?.runtime?.sendMessage;
   if (!send) return undefined;
   try {
@@ -38,6 +38,31 @@ async function borrowHeaders(): Promise<TescoHeaders | undefined> {
   } catch {
     return undefined;
   }
+}
+
+async function borrowHeaders(): Promise<TescoHeaders | undefined> {
+  const held = await ask();
+  if (held?.authorization) return held;
+
+  // Being signed in is not the same as having been watched signing in. These
+  // can only be taken from a request Tesco's own page makes, so a tab opened
+  // before the extension was loaded has never given us one, and the app tells
+  // someone plainly signed in that they are not. Ask Tesco for a page, wait,
+  // and look again, rather than sending a person off to refresh a tab.
+  const send = chromeApi()?.runtime?.sendMessage;
+  if (!send) return held;
+  try {
+    await send({ type: "tesco-refresh" });
+  } catch {
+    return held;
+  }
+
+  for (let wait = 0; wait < 12; wait++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const now = await ask();
+    if (now?.authorization) return now;
+  }
+  return undefined;
 }
 
 /** The direct transport, when there is one to have. */

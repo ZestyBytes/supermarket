@@ -32,9 +32,26 @@ chrome.action.onClicked.addListener(async () => {
  * page made, and they are held in memory only.
  */
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || message?.type !== 'tesco-headers') return;
-  chrome.storage.session.get('tescoHeaders').then(({ tescoHeaders }) => reply({ headers: tescoHeaders }));
-  return true;
+  if (sender.id !== chrome.runtime.id) return;
+
+  if (message?.type === 'tesco-headers') {
+    chrome.storage.session.get('tescoHeaders').then(({ tescoHeaders }) => reply({ headers: tescoHeaders }));
+    return true;
+  }
+
+  // Ask Tesco's own page to make a request, so there is one to borrow from.
+  //
+  // Being signed in is not the same as having been watched signing in. The
+  // headers can only be taken from a request Tesco's page makes, so a tab
+  // opened before this extension was loaded has never given us one, and the
+  // app says "not signed in" to someone who plainly is. Rather than asking a
+  // person to go and refresh a tab, fetch it.
+  if (message?.type === 'tesco-refresh') {
+    mintQuietly()
+      .then(() => reply({ ok: true }))
+      .catch(() => reply({ ok: false }));
+    return true;
+  }
 });
 
 /* ---------- staying connected ---------- */

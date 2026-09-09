@@ -34,7 +34,7 @@ export function Gate({ state, onIgnore }: { state: BasketState; onIgnore: () => 
           {offline
             ? "This page can plan a week on its own, but adding to a real basket happens on the computer that holds your Tesco session. Start Supermarket there and open it again."
             : direct
-              ? "Open tesco.com in another tab and sign in, then come back and check again. Nothing else is needed: this uses the same session your browser already has."
+              ? "Check again will open Tesco in the background and try. If it still says this, open tesco.com in another tab, sign in, load your basket once, and come back."
               : "Your Tesco sign-in has expired, which it does about once an hour. Open the Supermarket extension in Chrome, click Connect, then come back here."}
         </p>
 
