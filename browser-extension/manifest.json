@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Supermarket Tesco Connect",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Plan the week and fill your Tesco basket, with nothing else to run.",
   "permissions": [
     "webRequest",
@@ -15,6 +15,7 @@
   "host_permissions": [
     "https://www.tesco.com/*",
     "https://xapi.tesco.com/*",
+    "https://search.api.tesco.com/*",
     "http://127.0.0.1/*"
   ],
   "background": {

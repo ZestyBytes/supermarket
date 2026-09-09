@@ -139,3 +139,43 @@ describe("talking to Tesco from the browser", () => {
     expect(answers[1].error?.code).toBe("RETAILER_ERROR");
   });
 });
+
+describe("a token that has aged out", () => {
+  it("gets a fresh one and asks again, rather than declaring the shopper signed out", async () => {
+    // A Tesco token lasts about an hour. Holding a dead one looks exactly like
+    // holding a live one until Tesco refuses it, so a 403 is far more often a
+    // stale token than a shopper who signed out.
+    let token = "Bearer stale";
+    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const sent = (init.headers as Record<string, string>).authorization;
+      return sent === "Bearer fresh" ? reply([basketBody]) : reply({}, 403);
+    });
+
+    const tesco = createTescoTransport({
+      headers: async () => ({ authorization: token }),
+      renew: async () => { token = "Bearer fresh"; },
+      fetch: fetch as never,
+    });
+
+    await expect(tesco.readBasket()).resolves.toBeDefined();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after one renewal, so a genuinely signed-out shopper is told", async () => {
+    const fetch = vi.fn(async () => reply({}, 403));
+    const renew = vi.fn(async () => {});
+    const tesco = createTescoTransport({ headers: async () => HEADERS, renew, fetch: fetch as never });
+
+    await expect(tesco.readBasket()).rejects.toBeInstanceOf(TescoError);
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("still refuses when a renewal is not possible at all", async () => {
+    const fetch = vi.fn(async () => reply({}, 401));
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    await expect(tesco.readBasket()).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

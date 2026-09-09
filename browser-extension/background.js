@@ -21,15 +21,25 @@ let busy = false;
  * route and applies only to requests this extension itself makes.
  */
 const ORIGIN_RULE = 1;
+const SEARCH_RULE = 2;
+
+// Both halves of a search: the public endpoint that turns words into product
+// numbers, and the API that describes them. The first needs no token but is
+// still Tesco's, and is still entitled to decline a caller announcing itself
+// as an extension.
+const TESCO_HOSTS = [
+  { id: ORIGIN_RULE, filter: '||xapi.tesco.com' },
+  { id: SEARCH_RULE, filter: '||search.api.tesco.com' },
+];
 
 async function lookLikeTesco() {
   await chrome.declarativeNetRequest.updateSessionRules({
-    removeRuleIds: [ORIGIN_RULE],
-    addRules: [{
-      id: ORIGIN_RULE,
+    removeRuleIds: TESCO_HOSTS.map(host => host.id),
+    addRules: TESCO_HOSTS.map(host => ({
+      id: host.id,
       priority: 1,
       condition: {
-        urlFilter: '||xapi.tesco.com',
+        urlFilter: host.filter,
         initiatorDomains: [chrome.runtime.id],
         resourceTypes: ['xmlhttprequest'],
       },
@@ -40,7 +50,7 @@ async function lookLikeTesco() {
           { header: 'referer', operation: 'set', value: 'https://www.tesco.com/groceries/en-GB/trolley' },
         ],
       },
-    }],
+    })),
   });
 }
 

@@ -65,9 +65,35 @@ async function borrowHeaders(): Promise<TescoHeaders | undefined> {
   return undefined;
 }
 
+/**
+ * Replace the token we hold with a fresher one.
+ *
+ * A Tesco token is good for roughly an hour. Nothing here notices it aging,
+ * because a held token looks exactly as good as a live one until Tesco refuses
+ * it, at which point the app would go on sending the same dead token and
+ * telling the shopper to sign in. So when Tesco refuses, go and read the page
+ * again, and wait for the answer to actually change rather than for time to
+ * pass.
+ */
+async function renewHeaders(): Promise<void> {
+  const send = chromeApi()?.runtime?.sendMessage;
+  if (!send) return;
+  const stale = (await ask())?.authorization;
+  try {
+    await send({ type: "tesco-refresh" });
+  } catch {
+    return;
+  }
+  for (let wait = 0; wait < 6; wait++) {
+    const now = (await ask())?.authorization;
+    if (now && now !== stale) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
 /** The direct transport, when there is one to have. */
 export function extensionTransport(): Transport | undefined {
-  return inExtension() ? createTescoTransport({ headers: borrowHeaders }) : undefined;
+  return inExtension() ? createTescoTransport({ headers: borrowHeaders, renew: renewHeaders }) : undefined;
 }
 
 

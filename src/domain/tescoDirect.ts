@@ -50,12 +50,18 @@ export function lastTescoAnswer(): string {
 
 export function createTescoTransport({
   headers,
+  renew,
   fetch: doFetch = globalThis.fetch,
 }: {
   headers: () => Promise<TescoHeaders | undefined>;
+  /** Fetch a fresh token, when the one we hold has aged out. */
+  renew?: () => Promise<void>;
   fetch?: typeof globalThis.fetch;
 }): Transport {
-  async function gql<T>(operations: Array<{ operationName: string; query: string; variables: unknown }>): Promise<T[]> {
+  async function gql<T>(
+    operations: Array<{ operationName: string; query: string; variables: unknown }>,
+    renewed = false,
+  ): Promise<T[]> {
     // Try it, whether or not a token was borrowed.
     //
     // Refusing to ask because we have not seen a Bearer token was a
@@ -91,6 +97,14 @@ export function createTescoTransport({
     lastAnswer = `${response.status} ${response.statusText || ""}`.trim() + `, sent: ${sent.join(", ") || "nothing but cookies"}`;
 
     if (response.status === 401 || response.status === 403) {
+      // A token lasts about an hour, so the common cause of a 403 is not that
+      // the shopper signed out but that the app is holding yesterday's token
+      // and has no reason to doubt it. Get a fresh one and ask again, once,
+      // before telling someone plainly signed in that they are not.
+      if (renew && !renewed) {
+        await renew().catch(() => {});
+        return gql<T>(operations, true);
+      }
       throw new TescoError("SESSION_EXPIRED", "Tesco needs you to sign in again. Open a Tesco tab, then try again.");
     }
     if (response.status === 429) {
