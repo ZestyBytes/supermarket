@@ -163,13 +163,25 @@ export function createTescoTransport({
       // them" on a random handful of lines while their neighbours priced up
       // perfectly. Asking politely gets the whole list.
       return atATime(AT_ONCE, queries, async (query) => {
-        try {
-          return { query, results: await search(query, limit, doFetch, gql) };
-        } catch (error) {
-          const code = error instanceof TescoError ? error.code : "RETAILER_ERROR";
-          // A dead session is the whole shop's problem, not this line's.
-          if (code === "SESSION_EXPIRED" || code === "SESSION_MISSING") throw error;
-          return { query, results: [], error: { code, message: (error as Error).message } };
+        // Twice before giving up on a line.
+        //
+        // One ingredient failing while the seven around it price up perfectly
+        // is not a shop that has no lettuce; it is a request that went astray,
+        // and telling someone to press a button we could have pressed
+        // ourselves is not much of an answer. The second attempt is free when
+        // the first works, which is nearly always.
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return { query, results: await search(query, limit, doFetch, gql) };
+          } catch (error) {
+            const code = error instanceof TescoError ? error.code : "RETAILER_ERROR";
+            // A dead session is the whole shop's problem, not this line's, and
+            // asking again will not mend it.
+            if (code === "SESSION_EXPIRED" || code === "SESSION_MISSING") throw error;
+            if (attempt >= 1) return { query, results: [], error: { code, message: (error as Error).message } };
+            // Long enough to be a different moment, short enough to go unnoticed.
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
         }
       });
     },

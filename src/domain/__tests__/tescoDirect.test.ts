@@ -229,3 +229,42 @@ describe("asking Tesco politely", () => {
     await expect(tesco.searchBatch(["onions"])).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
   });
 });
+
+describe("a line that goes astray", () => {
+  const searchHit = { uk: { ghs: { products: { results: [{ tpnb: "111" }] } } } };
+  const described = [{ data: { product: { id: "p1", title: "Tesco Romaine Lettuce 250G", price: { actual: 0.99 } } } }];
+
+  it("asks again for the one line that failed, rather than reporting it missing", async () => {
+    let first = true;
+    const fetch = vi.fn(async (url: string) => {
+      if (!String(url).includes("search.api")) return reply(described);
+      if (first) { first = false; throw new TypeError("Failed to fetch"); }
+      return reply(searchHit);
+    });
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    const [answer] = await tesco.searchBatch(["romaine lettuce"]);
+    expect(answer.error).toBeUndefined();
+    expect(answer.results).toHaveLength(1);
+  });
+
+  it("gives up after the second try, so a real failure is still reported", async () => {
+    const fetch = vi.fn(async () => { throw new TypeError("Failed to fetch"); });
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    const [answer] = await tesco.searchBatch(["romaine lettuce"]);
+    expect(answer.error?.code).toBe("OFFLINE");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a dead session, which asking again will not mend", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      String(url).includes("search.api") ? reply(searchHit) : reply([{ errors: [{ message: "Unauthorized" }] }]),
+    );
+    const tesco = createTescoTransport({ headers: async () => HEADERS, fetch: fetch as never });
+
+    await expect(tesco.searchBatch(["romaine lettuce"])).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
+    // One search, one lookup: no second run at a problem retrying cannot fix.
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});
